@@ -115,7 +115,7 @@ export class GameScene extends Phaser.Scene implements Scene {
 		const player = characterFactory.buildPlayerCharacter('aurora', 800, 300);
 		const npc = characterFactory.buildTestCharacter('blue', 700, 200);
 		npc.addSteering(new Wander(npc, 0.1));
-		this.input.keyboard.on('keydown-D', () => {
+		this.input.keyboard.once('keydown-D', () => {
 			// Turn on physics debugging to show player's hitbox
 			this.physics.world.createDebugGraphic();
 

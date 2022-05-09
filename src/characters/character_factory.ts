@@ -51,7 +51,7 @@ export default class CharacterFactory {
 	) {
 		if (dynamic) {
 			this.dynamicGroup.add(sprite);
-			sprite.setCollideWorldBounds(true);
+			// sprite.setCollideWorldBounds(true);
 		}
 		sprite.setDepth(depth);
 		this.gameObjects.push(sprite);
@@ -66,7 +66,7 @@ export default class CharacterFactory {
 	}
 
 	buildPlayerCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
-		const maxSpeed = 100;
+		const maxSpeed = 1000;
 		const cursors = this.scene.input.keyboard.createCursorKeys();
 		const animationSets = this.animationLibrary['aurora'];
 		if (animationSets === undefined) throw new Error(`Not found animations for aurora`);
