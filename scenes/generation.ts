@@ -9,8 +9,8 @@ export class Vertex extends Geom.Circle {
 
 export class Road extends Geom.Line {
 	constructor(
-		readonly from: Geom.Circle,
-		readonly to: Geom.Circle,
+		readonly from: Vertex,
+		readonly to: Vertex,
 		p1: { x: number; y: number } = from,
 		p2: { x: number; y: number } = to
 	) {
@@ -22,6 +22,19 @@ export class Road extends Geom.Line {
 }
 
 export type MapGraph = ReturnType<typeof GenerateGraph>;
+
+function toJSON(this: MapGraph) {
+	const { vertexes, roads } = this;
+	return {
+		vertexes: vertexes.map(v => ({ x: v.x, y: v.y, r: v.radius })),
+		roads: roads.map(r => ({
+			from: vertexes.findIndex(v => v === r.from),
+			to: vertexes.findIndex(v => v === r.to),
+			p1: r.getPointA(),
+			p2: r.getPointB(),
+		})),
+	};
+}
 
 export function GenerateGraph({
 	width,
@@ -93,5 +106,5 @@ export function GenerateGraph({
 			}
 		}
 	}
-	return { vertexes, roads };
+	return { vertexes, roads, toJSON };
 }
