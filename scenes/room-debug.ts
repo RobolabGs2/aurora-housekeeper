@@ -19,11 +19,13 @@ const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
 enum TileType {
 	Empty,
 	Wall,
+	Road,
 }
 
 const TileMapping = {
 	[TileType.Empty]: 0,
 	[TileType.Wall]: 2727,
+	[TileType.Road]: 830,
 };
 const inputTile = 1560;
 const boardTile = 2735;
@@ -184,6 +186,18 @@ class CellSet {
 	get size() {
 		return this.cells.size;
 	}
+	closest(p: { x: number; y: number }) {
+		let minDist = this.mapSize * this.mapSize;
+		let closest = p;
+		this.forEach(cell => {
+			const dist = Phaser.Math.Distance.Snake(cell.x, cell.y, p.x, p.y);
+			if (dist < minDist) {
+				closest = cell;
+				minDist = dist;
+			}
+		});
+		return closest;
+	}
 	private fromKey(key: number) {
 		return {
 			x: (key / this.mapSize) | 0,
@@ -197,8 +211,8 @@ class CellSet {
 
 function renderGraph(graph: MapGraph, width: number, height: number) {
 	const rawMap = createMatrix(TileType.Wall, width, height);
-	graph.vertexes.forEach(circle => {
-		const room = roomPostprocessing(generateRoom(circle));
+	const rooms = graph.vertexes.map(v => roomPostprocessing(generateRoom(v)));
+	rooms.forEach(room => {
 		// _fillcircle(circle.x, circle.y, circle.radius, (x1, x2, y) => {
 		// 	for (let x = x1; x <= x2; x++) {
 		// 		const cell = room[y - circle.top][x - circle.left];
@@ -211,15 +225,87 @@ function renderGraph(graph: MapGraph, width: number, height: number) {
 		});
 	});
 	graph.roads.forEach(road => {
-		line(road.x1, road.x2, road.y1, road.y2, (x, y) => (rawMap[y][x] = TileType.Empty));
+		const startRoom = rooms.find(r => r.vertex === road.from)!;
+		const finishRoom = rooms.find(r => r.vertex === road.to)!;
+		const start = new Vector2(
+			startRoom.emptySpace.closest(
+				road.getPointA().subtract({ x: startRoom.vertex.left, y: startRoom.vertex.top })
+			)
+		).add({ x: startRoom.vertex.left, y: startRoom.vertex.top });
+		const finish = new Vector2(
+			finishRoom.emptySpace.closest(
+				road.getPointB().subtract({ x: finishRoom.vertex.left, y: finishRoom.vertex.top })
+			)
+		).add({ x: finishRoom.vertex.left, y: finishRoom.vertex.top });
+		drunkenLine(
+			start.x,
+			start.y,
+			finish.x,
+			finish.y,
+			(x, y) => (rawMap[y][x] = TileType.Road),
+			(x, y) =>
+				graph.vertexes.reduce((sum, vertex) => {
+					if (vertex === road.to) return sum;
+					// const mass = (Math.PI * vertex.radius * vertex.radius) / 10;
+					// const rawDir = new Vector2(x - vertex.x, y - vertex.y);
+					// const dist = rawDir.lengthSq();
+					// const dir = rawDir.normalize().scale(mass / dist);
+					// return sum.add(dir);
+					const tmpLine = new Geom.Line(x, y, vertex.x, vertex.y);
+					const closestPoint = new Vector2();
+					Geom.Intersects.LineToCircle(tmpLine, vertex, closestPoint);
+					const rawDir = closestPoint.subtract({ x, y }).scale(-1);
+					const dist = rawDir.length();
+					const dir = rawDir.normalize().scale(10500 / (dist * dist * dist));
+					return sum.add(dir);
+				}, new Vector2())
+		);
 	});
+	return erode(rawMap, [TileType.Road], [TileType.Wall], alive => alive < 2);
 	return rawMap;
+}
+
+function drunkenLine(
+	x1: number,
+	y1: number,
+	x2: number,
+	y2: number,
+	draw: (x: number, y: number) => void,
+	gravitation?: (x: number, y: number) => Vector2
+) {
+	const start = new Vector2(x1, y1);
+	const finish = new Vector2(x2, y2);
+	const current = start.clone();
+	const random = new Vector2();
+	while (current.distance(finish) > 0.5) {
+		const gravitationForce = gravitation?.(current.x, current.y) || Vector2.ZERO;
+		Phaser.Math.RandomXY(random, Phaser.Math.RND.realInRange(0.01, gravitationForce.length() * 2));
+		const dir = finish
+			.clone()
+			.subtract(current)
+			.normalize()
+			.add(random)
+			.add(gravitationForce)
+			.normalize();
+		current.add(dir);
+		draw(Math.round(current.x), Math.round(current.y));
+		dir.normalizeLeftHand();
+		draw(Math.round(current.x + dir.x), Math.round(current.y));
+		draw(Math.round(current.x - dir.x), Math.round(current.y));
+		draw(Math.round(current.x + dir.x), Math.round(current.y + dir.y));
+		draw(Math.round(current.x - dir.x), Math.round(current.y + dir.y));
+		draw(Math.round(current.x), Math.round(current.y + dir.y));
+		draw(Math.round(current.x), Math.round(current.y - dir.y));
+		draw(Math.round(current.x + dir.x), Math.round(current.y - dir.y));
+		draw(Math.round(current.x - dir.x), Math.round(current.y - dir.y));
+	}
 }
 
 function searchConnectivyComponents(
 	tiles: number[][],
 	emptyTile: number,
-	flagTile?: number
+	flagTile?: number,
+	maxSize = tiles.length * tiles.length
 ): [CellSet[], CellSet[]] {
 	const components = new Array<CellSet>();
 	const flagedComponents = new Array<CellSet>();
@@ -248,8 +334,10 @@ function searchConnectivyComponents(
 					if (tiles[y][x] !== emptyTile || component.has(p)) continue;
 					queue.push(p);
 					component.add(p);
+					if (component.size > maxSize) break;
 				}
 			}
+			if (component.size > maxSize) continue;
 			if (flag) flagedComponents.push(component);
 			else components.push(component);
 		}
@@ -304,43 +392,15 @@ function roomPostprocessing(room: ReturnType<typeof generateRoom>) {
 			tiles[y][x] = deadTile;
 		});
 	});
-	// const wallsComponents = searchConnectivyComponents(tiles, deadTile, boardTile);
-	// wallsComponents[0].forEach((component, i) =>
-	// 	component.forEach(key => {
-	// 		const { x, y } = fromKey(key);
-	// 		tiles[y][x] = deadTile + (i % 8);
-	// 	})
-	// );
-	const size = tiles.length;
-	room.roads.forEach(road => {
-		let minDist = tiles.length * tiles.length;
-		let closest = road;
-		maxComponent.forEach(cell => {
-			const dist = Phaser.Math.Distance.Snake(cell.x, cell.y, road.x, road.y);
-			if (dist < minDist) {
-				closest = cell;
-				minDist = dist;
-			}
-		});
-		line(road.x, closest.x, road.y, closest.y, (x: number, y: number) => {
-			for (const [dx, dy] of [
-				[0, 0],
-				[1, 0],
-				[-1, 0],
-				[0, 1],
-				[0, -1],
-			]) {
-				const nx = x + dx;
-				const ny = y + dy;
-				const p = { x: nx, y: ny };
-				if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
-				if (tiles[ny][nx] === aliveTile) continue;
-				maxComponent.add(p);
-				tiles[ny][nx] = aliveTile;
-			}
-		});
-		console.log(road, closest);
-	});
+	// const wallsComponents = searchConnectivyComponents(tiles, deadTile, boardTile, 8);
+	// wallsComponents[0]
+	// 	.filter(set => set.size < 9)
+	// 	.forEach(component =>
+	// 		component.forEach(p => {
+	// 			tiles[p.y][p.x] = aliveTile;
+	// 			maxComponent.add(p);
+	// 		})
+	// 	);
 	return {
 		...room,
 		emptySpace: maxComponent,
@@ -480,7 +540,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		});
 		this.textures.addCanvas('minimap', minimap);
 		this.add.image(-width / 2, height / 2, 'minimap');
-		debugCamera.ignore(g);
+		// debugCamera.ignore(g);
 		g.lineStyle(2, 0x000000);
 		g.strokeRect(0, 0, width, height);
 		g.lineStyle(2, 0xff0000);
