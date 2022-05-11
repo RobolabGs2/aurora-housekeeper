@@ -36,15 +36,14 @@ function toJSON(this: MapGraph) {
 	};
 }
 
-export function GenerateGraph({
-	width,
-	height,
-	rndState,
-}: {
+type GeneratorConfig = {
 	width: number;
 	height: number;
 	rndState?: string;
-}) {
+	roomsCount: number;
+};
+
+export function GenerateGraph({ width, height, rndState, roomsCount }: GeneratorConfig) {
 	const vertexes = new Array<Vertex>();
 	const RND = new Phaser.Math.RandomDataGenerator();
 	if (rndState) {
@@ -52,7 +51,7 @@ export function GenerateGraph({
 	}
 	console.debug(RND.state()); //'!rnd,1,0.7053001527674496,0.2902482398785651,0.3079300969839096'
 	const borders = new Geom.Rectangle(0, 0, width, height);
-	for (let i = 0; i < 15; i++) {
+	for (let i = 0; i < roomsCount; i++) {
 		for (let j = 0; j < 100; j++) {
 			const circle = new Vertex(
 				RND.between(0, width),
@@ -93,9 +92,7 @@ export function GenerateGraph({
 					Geom.Intersects.GetLineToCircle(draftLine, to)[0]
 				);
 				if (
-					vertexes.find(
-						circle => circle !== from && circle !== to && Geom.Intersects.LineToCircle(road, circle)
-					) ||
+					vertexes.find(intersectsWithRoad(road)) ||
 					roads.find(line => Geom.Intersects.LineToLine(road, line))
 				)
 					continue;
@@ -107,4 +104,14 @@ export function GenerateGraph({
 		}
 	}
 	return { vertexes, roads, toJSON };
+}
+function intersectsWithRoad(road: Road): (value: Vertex, index: number, obj: Vertex[]) => unknown {
+	return circle => {
+		if (circle === road.from || circle === road.to) return false;
+		const originalR = circle.radius;
+		circle.radius += 10;
+		const intersects = Geom.Intersects.LineToCircle(road, circle);
+		circle.radius = originalR;
+		return intersects;
+	};
 }

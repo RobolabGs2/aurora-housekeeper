@@ -6,14 +6,15 @@ import tilemapPng from '../assets/tileset/Green_Meadow_Tileset.png';
 import CharacterFactory from '../src/characters/character_factory';
 import { Scene } from '../src/characters/scene';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
-import { MapGraph, GenerateGraph, Vertex, Road } from './generation';
+import { MapGraph, GenerateGraph, Vertex } from './generation';
 
 import Vector2 = Phaser.Math.Vector2;
 
-const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
+const { randomState, defaultZoom, playerMode, fastMode } = loadSettingsFromURL({
 	randomState: `!rnd,1,${Math.random()},${Math.random()},${Math.random()}`,
 	defaultZoom: 1,
 	playerMode: false,
+	fastMode: false,
 });
 
 enum TileType {
@@ -40,7 +41,7 @@ function generateRoom(vertex: Vertex, random = new Phaser.Math.RandomDataGenerat
 	});
 	_fillcircle(vertex.radius, vertex.radius, (vertex.radius * 0.9) | 0, (x1, x2, y) => {
 		const lenght = x2 - x1;
-		const cellsCount = random.between(lenght * 0.01, lenght * 0.2);
+		const cellsCount = random.between(lenght * 0.01, lenght * 0.25);
 		for (let i = 0; i < cellsCount; i++) {
 			rawMap[y][random.between(x1, x2)] = deadTile;
 		}
@@ -120,32 +121,6 @@ function createMatrix<T>(defaultValue: T, width: number, height = width): T[][] 
 	return new Array(height).fill(0).map(() => new Array(width).fill(defaultValue));
 }
 
-function filter(
-	map: number[][],
-	core: number[][],
-	aliveTile: number,
-	deadTile: number,
-	immortalTile: number
-) {
-	const size = map.length;
-	const bufferMap = createMatrix(0, size);
-	for (let y = 0; y < size; y++)
-		for (let x = 0; x < size; x++) {
-			bufferMap[y][x] = map[y][x];
-			const isAlive = map[y][x] === aliveTile;
-			if (!isAlive && map[y][x] !== deadTile) continue;
-			let alive = isAlive ? -1 : 0;
-			for (let dx = -1; dx <= 1; dx++)
-				for (let dy = -1; dy <= 1; dy++) {
-					const neiborhood = map[Math.max(0, Math.min(size - 1, y - dy))][x - dx];
-					alive += +(neiborhood === aliveTile) + +(neiborhood == immortalTile);
-				}
-			if (isAlive && (alive < 3 || alive > 6)) bufferMap[y][x] = deadTile;
-			if (!isAlive && alive > 2) bufferMap[y][x] = aliveTile;
-		}
-	return bufferMap;
-}
-
 function erode(
 	map: number[][],
 	// core: number[][],
@@ -198,6 +173,9 @@ class CellSet {
 		});
 		return closest;
 	}
+	randomCell(rnd = Phaser.Math.RND) {
+		return this.fromKey(rnd.pick(Array.from(this.cells.values())));
+	}
 	private fromKey(key: number) {
 		return {
 			x: (key / this.mapSize) | 0,
@@ -211,7 +189,14 @@ class CellSet {
 
 function renderGraph(graph: MapGraph, width: number, height: number) {
 	const rawMap = createMatrix(TileType.Wall, width, height);
-	const rooms = graph.vertexes.map(v => roomPostprocessing(generateRoom(v)));
+	const rooms = graph.vertexes.map(v => {
+		let room = roomPostprocessing(generateRoom(v));
+		while (room.emptySpace.size < v.radius * v.radius * 1.25) {
+			console.warn(room.emptySpace.size, v.radius * v.radius * 1.25, v.radius);
+			room = roomPostprocessing(generateRoom(v));
+		}
+		return room;
+	});
 	rooms.forEach(room => {
 		// _fillcircle(circle.x, circle.y, circle.radius, (x1, x2, y) => {
 		// 	for (let x = x1; x <= x2; x++) {
@@ -243,26 +228,38 @@ function renderGraph(graph: MapGraph, width: number, height: number) {
 			finish.x,
 			finish.y,
 			(x, y) => (rawMap[y][x] = TileType.Road),
-			(x, y) =>
-				graph.vertexes.reduce((sum, vertex) => {
-					if (vertex === road.to) return sum;
-					// const mass = (Math.PI * vertex.radius * vertex.radius) / 10;
-					// const rawDir = new Vector2(x - vertex.x, y - vertex.y);
-					// const dist = rawDir.lengthSq();
-					// const dir = rawDir.normalize().scale(mass / dist);
-					// return sum.add(dir);
+			(x, y) => {
+				// graph.vertexes.reduce((sum, vertex) => {
+				// 	if (vertex === road.to) return sum;
+				// 	const tmpLine = new Geom.Line(x, y, vertex.x, vertex.y);
+				// 	const closestPoint = new Vector2();
+				// 	Geom.Intersects.LineToCircle(tmpLine, vertex, closestPoint);
+				// 	const rawDir = closestPoint.subtract({ x, y }).scale(-1);
+				// 	const dist = rawDir.length();
+				// 	const dir = rawDir.normalize().scale(10500 / (dist * dist * dist));
+				// 	return sum.add(dir);
+				// }, new Vector2());
+				const closest = graph.vertexes.reduce((closest, vertex) => {
+					if (vertex === road.to) return closest;
 					const tmpLine = new Geom.Line(x, y, vertex.x, vertex.y);
 					const closestPoint = new Vector2();
 					Geom.Intersects.LineToCircle(tmpLine, vertex, closestPoint);
 					const rawDir = closestPoint.subtract({ x, y }).scale(-1);
 					const dist = rawDir.length();
-					const dir = rawDir.normalize().scale(10500 / (dist * dist * dist));
-					return sum.add(dir);
-				}, new Vector2())
+					// const dir = rawDir.normalize().scale(10500 / (dist * dist * dist));
+					// return sum.add(dir);
+					return dist < closest.length() ? rawDir : closest;
+				}, new Vector2(width, height));
+				const dist = closest.length();
+				return closest.normalize().scale(250 / (dist * dist));
+			}
 		);
 	});
-	return erode(rawMap, [TileType.Road], [TileType.Wall], alive => alive < 2);
-	return rawMap;
+	return {
+		graph,
+		rooms,
+		tiles: erode(rawMap, [TileType.Road], [TileType.Wall], alive => alive < 2),
+	};
 }
 
 function drunkenLine(
@@ -279,7 +276,10 @@ function drunkenLine(
 	const random = new Vector2();
 	while (current.distance(finish) > 0.5) {
 		const gravitationForce = gravitation?.(current.x, current.y) || Vector2.ZERO;
-		Phaser.Math.RandomXY(random, Phaser.Math.RND.realInRange(0.01, gravitationForce.length() * 2));
+		Phaser.Math.RandomXY(
+			random,
+			Phaser.Math.RND.realInRange(0.01, Math.max(1, gravitationForce.length() * 2))
+		);
 		const dir = finish
 			.clone()
 			.subtract(current)
@@ -392,15 +392,17 @@ function roomPostprocessing(room: ReturnType<typeof generateRoom>) {
 			tiles[y][x] = deadTile;
 		});
 	});
-	// const wallsComponents = searchConnectivyComponents(tiles, deadTile, boardTile, 8);
-	// wallsComponents[0]
-	// 	.filter(set => set.size < 9)
-	// 	.forEach(component =>
-	// 		component.forEach(p => {
-	// 			tiles[p.y][p.x] = aliveTile;
-	// 			maxComponent.add(p);
-	// 		})
-	// 	);
+	if (!fastMode) {
+		const wallsComponents = searchConnectivyComponents(tiles, deadTile, boardTile, 8);
+		wallsComponents[0]
+			.filter(set => set.size < 9)
+			.forEach(component =>
+				component.forEach(p => {
+					tiles[p.y][p.x] = aliveTile;
+					maxComponent.add(p);
+				})
+			);
+	}
 	return {
 		...room,
 		emptySpace: maxComponent,
@@ -485,47 +487,29 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		// debugCamera2.setZoom(1 / this.tileSize);
 		const debugCamera = this.cameras.add(this.game.canvas.width - width, 0, width, height);
 		debugCamera.centerOn(-width / 2, height / 2);
-		if (playerMode) {
-			this.characterFactory = new CharacterFactory(this);
-			this.characterFactory.buildPlayerCharacter('aurora', 100, 100);
-		} else {
-			mainCamera.centerOn(this.width / 4, this.height / 4);
-			mainCamera.setZoom(defaultZoom, defaultZoom);
-			this.objects.push(
-				new Phaser.Cameras.Controls.FixedKeyControl({
-					camera: mainCamera,
-					left: this.input.keyboard.addKey('A'),
-					right: this.input.keyboard.addKey('D'),
-					up: this.input.keyboard.addKey('W'),
-					down: this.input.keyboard.addKey('S'),
-					zoomIn: this.input.keyboard.addKey('E'),
-					zoomOut: this.input.keyboard.addKey('Q'),
-					speed: 0.0009,
-				})
-			);
-		}
 
-		const graph = GenerateGraph({ width, height, rndState: randomState });
+		const graph = GenerateGraph({ width, height, rndState: randomState, roomsCount: 15 });
 		console.log('Graph generated');
-		const rawMap = renderGraph(graph, width, height);
+		const renderedGraph = renderGraph(graph, width, height);
 		console.log('Graph rendered');
 		// const rawMap = debugRoom(width, height);
 		const map = this.make.tilemap({
 			tileHeight: 32,
 			tileWidth: 32,
-			data: rawMap,
+			data: renderedGraph.tiles,
 		});
 		const tileset = map.addTilesetImage('main', 'tiles', 32, 32, 2, 6);
 		const layer = map.createLayer(0, tileset);
 		for (const tileType in TileMapping) {
 			layer.replaceByIndex(+tileType, TileMapping[tileType as unknown as keyof typeof TileMapping]);
+			// layer.
 		}
 
 		const g = this.add.graphics({ x: -width });
 		mainCamera.ignore(g);
 		const colorMap = new Array<number>(deadTile, 666, aliveTile);
 		const minimap = Phaser.Create.GenerateTexture({
-			data: rawMap.map(line =>
+			data: renderedGraph.tiles.map(line =>
 				line
 					.map(cell => {
 						if (cell === TileType.Wall) return '.';
@@ -562,6 +546,37 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		// this.height = map.heightInPixels;
 		// const graph
 		console.log(JSON.stringify(graph, undefined, '  '));
+		if (playerMode) {
+			this.characterFactory = new CharacterFactory(this);
+			const startedRoom = Phaser.Math.RND.pick(renderedGraph.rooms);
+			const cell = startedRoom.emptySpace.randomCell();
+			const p = this.tilesToPixels({
+				x: cell.x + startedRoom.vertex.left,
+				y: cell.y + startedRoom.vertex.top,
+			});
+			const player = this.characterFactory.buildPlayerCharacter(
+				'aurora',
+				p.x + this.tileSize / 2,
+				p.y + this.tileSize / 2
+			);
+			layer.setCollision([TileMapping[TileType.Wall]]);
+			this.physics.add.collider(player, layer);
+		} //else {
+		mainCamera.centerOn(this.width / 4, this.height / 4);
+		mainCamera.setZoom(defaultZoom, defaultZoom);
+		this.objects.push(
+			new Phaser.Cameras.Controls.FixedKeyControl({
+				camera: mainCamera,
+				left: this.input.keyboard.addKey('A'),
+				right: this.input.keyboard.addKey('D'),
+				up: this.input.keyboard.addKey('W'),
+				down: this.input.keyboard.addKey('S'),
+				zoomIn: this.input.keyboard.addKey('E'),
+				zoomOut: this.input.keyboard.addKey('Q'),
+				speed: 0.0009,
+			})
+		);
+		// }
 	}
 
 	update(dt: number) {
