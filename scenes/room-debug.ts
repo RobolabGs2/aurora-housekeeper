@@ -3,6 +3,7 @@ import EasyStar from 'easystarjs';
 import { Geom } from 'phaser';
 
 import tilemapPng from '../assets/tileset/Green_Meadow_Tileset.png';
+import { Wander } from '../src/ai/steerings/wander';
 import CharacterFactory from '../src/characters/character_factory';
 import { Scene } from '../src/characters/scene';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
@@ -16,6 +17,104 @@ const { randomState, defaultZoom, playerMode, fastMode } = loadSettingsFromURL({
 	playerMode: false,
 	fastMode: false,
 });
+
+enum Connectivity {
+	NONE = 0,
+	N = 1,
+	E = 2,
+	S = 4,
+	W = 8,
+	NE = 16,
+	NW = 32,
+	SE = 64,
+	SW = 128,
+}
+const tileIndexByConnectivity = (() => {
+	const NONE = Connectivity.NONE;
+	const N = Connectivity.N;
+	const E = Connectivity.E;
+	const S = Connectivity.S;
+	const W = Connectivity.W;
+	const NE = Connectivity.NE;
+	const NW = Connectivity.NW;
+	const SE = Connectivity.SE;
+	const SW = Connectivity.SW;
+	const desc = [
+		[NONE, E, W | E, W, S, S | E | SE, W | E | S | SW | SE, W | S | SW],
+		[
+			E | S,
+			W | S,
+			N | E | S,
+			W | E | S,
+			N | S,
+			N | NE | E | SE | S,
+			N | E | S | W | NE | NW | SE | SW,
+			N | S | SW | W | NW,
+		],
+		[N | E, W | N, N | E | W, N | S | W, N, N | NE | E, N | NE | E | W | NW, N | W | NW],
+		[
+			N | NE | E | S,
+			N | S | W | NW,
+			E | S | SW | W,
+			E | SE | W | S,
+			N | NE | E | S | SW | W | NW,
+			N | NE | E | SE | S | W | NW,
+			N | E | S | W | NW,
+			N | NE | E | S | W,
+		],
+		[
+			N | E | SE | S,
+			N | S | SW | W,
+			N | E | W | NW,
+			N | NE | E | W,
+			N | E | SE | S | SW | W | NW,
+			N | NE | E | SE | S | SW | W,
+			N | E | S | SW | W,
+			N | E | SE | S | W,
+		],
+		[
+			N | E | SE | S | SW | W,
+			N | NE | E | S | W | NW,
+			N | E | S | SW | W | NW,
+			N | NE | E | SE | W | S,
+			N | E | SE | S | W | NW,
+			N | NE | E | S | SW | W,
+			N | E | S | W,
+			256,
+		],
+	];
+	if (desc.find(l => l.length !== 8)) {
+		throw new Error('Dimentions mismatch');
+	}
+	const connectivityToXY = {} as Record<number, Vector2>;
+	for (let i1 = 0; i1 < desc.length; i1++) {
+		for (let j1 = 0; j1 < 8; j1++) {
+			const value = desc[i1][j1];
+			const dup = connectivityToXY[value];
+			if (dup !== undefined)
+				throw new Error(`Duplicated decriptions for ${i1};${j1} and ${dup.y};${dup.x}: ${value}`);
+			connectivityToXY[value] = new Vector2(j1, i1);
+		}
+	}
+	return {
+		get: (firstTileIndex: number, connectivity: number) => {
+			if ((connectivity & E) === 0) connectivity = connectivity & ~(SE | NE);
+			if ((connectivity & W) === 0) connectivity = connectivity & ~(SW | NW);
+			if ((connectivity & N) === 0) connectivity = connectivity & ~(NW | NE);
+			if ((connectivity & S) === 0) connectivity = connectivity & ~(SW | SE);
+
+			const notShifted = connectivityToXY[connectivity];
+			if (notShifted === undefined) {
+				console.error(`Unknown connectivity: ${connectivity.toString(2)}`);
+				return 3040;
+			}
+			return firstTileIndex + notShifted.y * 32 + notShifted.x;
+		},
+		allIndexes: (firstTileIndex: number) => {
+			return desc.flatMap((line, j) => line.map((_, i) => firstTileIndex + j * 32 + i));
+		},
+	};
+})();
 
 enum TileType {
 	Empty,
@@ -342,38 +441,6 @@ function searchConnectivyComponents(
 			else components.push(component);
 		}
 	});
-	/*
-	for (let i = 0; i < size; i++) {
-		for (let j = 0; j < size; j++) {
-			if (tiles[j][i] !== emptyTile) continue;
-			if (components.find(c => c.has(toKey({ x: i, y: j })))) continue;
-			const queue = [{ x: i, y: j }];
-			const component = new Set<number>();
-			component.add(toKey(queue[0]));
-			let flag = false;
-			while (queue.length) {
-				const current = queue.shift()!;
-				for (const [dx, dy] of [
-					[1, 0],
-					[-1, 0],
-					[0, 1],
-					[0, -1],
-				]) {
-					const x = current.x + dx;
-					const y = current.y + dy;
-					const p = { x, y };
-					if (x < 0 || x >= size || y < 0 || y >= size) continue;
-					flag = flag || tiles[y][x] === flagTile;
-					if (tiles[y][x] !== emptyTile || component.has(toKey(p))) continue;
-					queue.push(p);
-					component.add(toKey(p));
-				}
-			}
-			if (flag) flagedComponents.push(component);
-			else components.push(component);
-		}
-	}
-	*/
 	return [components, flagedComponents];
 }
 
@@ -493,10 +560,38 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		const renderedGraph = renderGraph(graph, width, height);
 		console.log('Graph rendered');
 		// const rawMap = debugRoom(width, height);
+		const mask = [
+			[Connectivity.NW, Connectivity.N, Connectivity.NE],
+			[Connectivity.W, Connectivity.NONE, Connectivity.E],
+			[Connectivity.SW, Connectivity.S, Connectivity.SE],
+		];
+		const typeToTileGroup = {
+			[TileType.Wall]: 2136,
+			[TileType.Empty]: 216,
+			[TileType.Road]: 24,
+		} as Record<number, number>;
+		const rawMap = renderedGraph.tiles.map(line => line.map(x => x));
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const tileType = renderedGraph.tiles[y][x];
+				let connectivity = Connectivity.NONE;
+				for (let dy = -1; dy <= 1; dy++) {
+					for (let dx = -1; dx <= 1; dx++) {
+						const ny = y + dy;
+						const nx = x + dx;
+						if (ny < 0 || nx < 0 || nx >= width || ny >= height) continue;
+						if (renderedGraph.tiles[ny][nx] === tileType)
+							connectivity = connectivity | mask[1 + dy][1 + dx];
+					}
+				}
+
+				rawMap[y][x] = tileIndexByConnectivity.get(typeToTileGroup[tileType] || 2128, connectivity);
+			}
+		}
 		const map = this.make.tilemap({
 			tileHeight: 32,
 			tileWidth: 32,
-			data: renderedGraph.tiles,
+			data: rawMap,
 		});
 		const tileset = map.addTilesetImage('main', 'tiles', 32, 32, 2, 6);
 		const layer = map.createLayer(0, tileset);
@@ -545,23 +640,35 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		// this.width = map.widthInPixels;
 		// this.height = map.heightInPixels;
 		// const graph
-		console.log(JSON.stringify(graph, undefined, '  '));
+		// console.log(JSON.stringify(graph, undefined, '  '));
+		const factory = (this.characterFactory = new CharacterFactory(this));
 		if (playerMode) {
-			this.characterFactory = new CharacterFactory(this);
 			const startedRoom = Phaser.Math.RND.pick(renderedGraph.rooms);
 			const cell = startedRoom.emptySpace.randomCell();
 			const p = this.tilesToPixels({
 				x: cell.x + startedRoom.vertex.left,
 				y: cell.y + startedRoom.vertex.top,
 			});
-			const player = this.characterFactory.buildPlayerCharacter(
+			const player = factory.buildPlayerCharacter(
 				'aurora',
 				p.x + this.tileSize / 2,
 				p.y + this.tileSize / 2
 			);
-			layer.setCollision([TileMapping[TileType.Wall]]);
-			this.physics.add.collider(player, layer);
 		} //else {
+		renderedGraph.rooms.forEach(room => {
+			const count = Phaser.Math.RND.between(
+				Math.max(1, Math.sqrt(room.emptySpace.size) / 4),
+				Math.max(4, Math.sqrt(room.emptySpace.size) / 2)
+			);
+			for (let i = 0; i < count; i++) {
+				const pos = room.emptySpace.randomCell();
+				pos.x += room.vertex.left;
+				pos.y += room.vertex.top;
+				const { x, y } = this.tilesToPixelsCenter(pos);
+				const npc = factory.buildTestCharacter('blue', x, y);
+				npc.addSteering(new Wander(npc, 0.2));
+			}
+		});
 		mainCamera.centerOn(this.width / 4, this.height / 4);
 		mainCamera.setZoom(defaultZoom, defaultZoom);
 		this.objects.push(
@@ -576,7 +683,15 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 				speed: 0.0009,
 			})
 		);
+		layer.setCollision(tileIndexByConnectivity.allIndexes(typeToTileGroup[TileType.Wall]));
+		this.physics.add.collider(factory.dynamicGroup, layer);
 		// }
+
+		// debugThing.forEach((arr, i) =>
+		// 	arr.forEach((c, j) => {
+		// 		layer.putTileAt(getTileIndexByConnectivity(1368, c), j, i);
+		// 	})
+		// );
 	}
 
 	update(dt: number) {
@@ -590,6 +705,13 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 
 	tilesToPixels(tile: { x: number; y: number }): Phaser.Math.Vector2 {
 		return new Phaser.Math.Vector2(tile.x * this.tileSize, tile.y * this.tileSize);
+	}
+
+	tilesToPixelsCenter(tile: { x: number; y: number }): Phaser.Math.Vector2 {
+		return new Phaser.Math.Vector2(
+			tile.x * this.tileSize + this.tileSize / 2,
+			tile.y * this.tileSize + this.tileSize / 2
+		);
 	}
 
 	pixelsToTiles(pixels: { x: number; y: number }): Phaser.Math.Vector2 {
