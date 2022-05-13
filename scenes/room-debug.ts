@@ -566,7 +566,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			[Connectivity.SW, Connectivity.S, Connectivity.SE],
 		];
 		const typeToTileGroup = {
-			[TileType.Wall]: 2136,
+			[TileType.Wall]: 2712, //1560, //1368, 1944
 			[TileType.Empty]: 216,
 			[TileType.Road]: 24,
 		} as Record<number, number>;
@@ -594,12 +594,14 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			data: rawMap,
 		});
 		const tileset = map.addTilesetImage('main', 'tiles', 32, 32, 2, 6);
+		const backgroundLayer = map.createBlankLayer('test', tileset, 0, 0);
+		// backgroundLayer.fill(54);
+		backgroundLayer.fill(638);
+
 		const layer = map.createLayer(0, tileset);
 		for (const tileType in TileMapping) {
 			layer.replaceByIndex(+tileType, TileMapping[tileType as unknown as keyof typeof TileMapping]);
-			// layer.
 		}
-
 		const g = this.add.graphics({ x: -width });
 		mainCamera.ignore(g);
 		const colorMap = new Array<number>(deadTile, 666, aliveTile);
@@ -635,12 +637,6 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		g.lineStyle(2, 0x00ffff);
 		graph.roads.forEach(g.strokeLineShape.bind(g));
 		console.log(this.objects);
-		// const rawMap = generateRoom(30, 20);
-
-		// this.width = map.widthInPixels;
-		// this.height = map.heightInPixels;
-		// const graph
-		// console.log(JSON.stringify(graph, undefined, '  '));
 		const factory = (this.characterFactory = new CharacterFactory(this));
 		if (playerMode) {
 			const startedRoom = Phaser.Math.RND.pick(renderedGraph.rooms);
@@ -683,15 +679,11 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 				speed: 0.0009,
 			})
 		);
+		this.input.keyboard.on('keydown-M', () => {
+			debugCamera.setVisible(!debugCamera.visible);
+		});
 		layer.setCollision(tileIndexByConnectivity.allIndexes(typeToTileGroup[TileType.Wall]));
 		this.physics.add.collider(factory.dynamicGroup, layer);
-		// }
-
-		// debugThing.forEach((arr, i) =>
-		// 	arr.forEach((c, j) => {
-		// 		layer.putTileAt(getTileIndexByConnectivity(1368, c), j, i);
-		// 	})
-		// );
 	}
 
 	update(dt: number) {
