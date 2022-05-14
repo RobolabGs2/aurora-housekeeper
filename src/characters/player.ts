@@ -48,7 +48,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 		this.updateAnimation();
 	}
 	updateAnimation() {
-		const animations = this.animationSets.get('Walk')!;
+		const animations = this.animationSets.get(
+			this.cursors.shift.isDown ? 'Attack1' : this.cursors.space.isDown ? 'Attack2' : 'Walk'
+		)!;
 		const animsController = this.anims;
 		const x = this.body.velocity.x;
 		const y = this.body.velocity.y;

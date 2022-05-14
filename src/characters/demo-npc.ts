@@ -41,27 +41,26 @@ export default class DemoNPC extends Phaser.Physics.Arcade.Sprite {
 	}
 
 	updateAnimation() {
-		const animations = this.animationSets.get('Walk')!;
+		const animations = this.animationSets.get('Jump')!;
 		const animsController = this.anims;
 		const x = this.body.velocity.x;
 		const y = this.body.velocity.y;
 
 		const eps = 40;
-
 		if (x < -eps) {
-			animsController.play(animations[0], true);
+			animsController.play('cactus_left', true);
 		} else if (x > eps) {
-			animsController.play(animations[1], true);
+			animsController.play('cactus_right', true);
 		} else if (y < 0) {
-			animsController.play(animations[2], true);
+			animsController.play('cactus_up', true);
 		} else if (y > 0) {
-			animsController.play(animations[3], true);
-		} else {
-			const currentAnimation = animsController.currentAnim;
-			if (currentAnimation) {
-				const frame = currentAnimation.getLastFrame();
-				this.setTexture(frame.textureKey, frame.textureFrame);
-			}
-		}
+			animsController.play('cactus_down', true);
+		} //else {
+		// 	const currentAnimation = animsController.currentAnim;
+		// 	if (currentAnimation) {
+		// 		const frame = currentAnimation.getLastFrame();
+		// 		this.setTexture(frame.textureKey, frame.textureFrame);
+		// 	}
+		// }
 	}
 }

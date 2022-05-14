@@ -6,8 +6,6 @@ import yellowSpriteSheet from '../assets/sprites/characters/yellow.png';
 import greenSpriteSheet from '../assets/sprites/characters/green.png';
 import slimeSpriteSheet from '../assets/sprites/characters/slime.png';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
-import PortalPng from '../assets/sprites/characters/portal.png';
-import SeedPng from '../assets/sprites/characters/seed.png';
 
 // Из урла берём следующую для открытия сцену
 const { openScene } = loadSettingsFromURL({ openScene: 'MainMenu' });
@@ -26,8 +24,6 @@ export class BootScene extends Phaser.Scene {
 		this.load.spritesheet('yellow', yellowSpriteSheet, characterFrameConfig);
 		this.load.spritesheet('punk', punkSpriteSheet, characterFrameConfig);
 		this.load.spritesheet('slime', slimeSpriteSheet, slimeFrameConfig);
-		this.load.image('seed', SeedPng);
-		this.load.image('portal', PortalPng);
 
 		this.load.on('complete', () => {
 			if (this.scene.manager.keys[openScene] === undefined) {

@@ -68,7 +68,7 @@ export default class CharacterFactory {
 	buildPlayerCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
 		const maxSpeed = 300;
 		const cursors = this.scene.input.keyboard.createCursorKeys();
-		const animationSets = this.animationLibrary['aurora'];
+		const animationSets = this.animationLibrary[spriteSheetName];
 		if (animationSets === undefined) throw new Error(`Not found animations for aurora`);
 		if (this.player) throw new Error(`Game does not support two players`);
 		const character = new Player(
