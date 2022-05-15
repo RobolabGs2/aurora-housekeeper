@@ -129,7 +129,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 				pos.x += room.vertex.left;
 				pos.y += room.vertex.top;
 				const { x, y } = this.tilesToPixelsCenter(pos);
-				const npc = factory.buildTestCharacter('blue', x, y);
+				const npc = factory.buildTestCharacter(x, y);
 				npc.addSteering(new Wander(npc, 0.1));
 				if (factory.player) npc.addSteering(new Pursuit(npc, factory.player, 0.25));
 			}

@@ -82,16 +82,27 @@ export default class CharacterFactory {
 		return character;
 	}
 
-	buildTestCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
+	buildTestCharacter(x: number, y: number) {
 		const maxSpeed = 50;
-		const animationSets = this.animationLibrary[spriteSheetName];
-		if (animationSets === undefined) throw new Error(`Not found animations for test`);
-		const character = new DemoNPC(this.scene, x, y, maxSpeed);
+		const snakes = [
+			...cyberSpritesheets,
+			'cactus',
+			'snake_0',
+			'snake_1',
+			'snake_2',
+			'snake_3',
+			'slime_0',
+			'slime_1',
+			'slime_2',
+			'slime_3',
+			'slime_3',
+		];
+		const character = new DemoNPC(this.scene, x, y, Phaser.Math.RND.pick(snakes), maxSpeed);
 		this.addSprite(character);
 		return character;
 	}
 
-	slimeNumberToName(n: number): string {
+	static slimeNumberToName(n: number): string {
 		switch (n) {
 			case 0:
 				return 'Blue';

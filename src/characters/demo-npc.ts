@@ -3,7 +3,13 @@ import { Biota, SnakeAnimation } from './player';
 import { Scene } from './scene';
 
 export default class DemoNPC extends Biota {
-	constructor(scene: Scene, x: number, y: number, readonly maxSpeed: number) {
+	constructor(
+		scene: Scene,
+		x: number,
+		y: number,
+		readonly snakeName: string,
+		readonly maxSpeed: number
+	) {
 		super(scene, x, y, 'cactus', 2);
 		this.setVelocity(1);
 	}
@@ -30,7 +36,7 @@ export default class DemoNPC extends Biota {
 			this.last = Date.now();
 		}
 	}
-	animCtrl = new SnakeAnimation(`slime_${Phaser.Math.RND.between(0, 4)}`);
+	animCtrl = new SnakeAnimation(this.snakeName);
 	updateAnimation() {
 		this.animCtrl.updateAnimation(this);
 	}

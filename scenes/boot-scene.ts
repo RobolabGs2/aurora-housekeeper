@@ -125,17 +125,22 @@ export class BootScene extends Phaser.Scene {
 			for (const name of ['aurora', 'blue', 'green', 'yellow', 'punk']) {
 				spritesGenerator.snake(
 					name,
-					textureFrameToArray(32, (x, y) => this.textures.getPixel(x, 16 - y, name, 0)?.color || -1)
+					textureFrameToArray(32, (x, y) => this.textures.getPixel(x, y - 16, name, 0)?.color || -1)
+				);
+			}
+			for (const snake of this.textures.get('snake').getFrameNames()) {
+				spritesGenerator.snake(
+					`snake_${snake}`,
+					textureFrameToArray(
+						32,
+						(x, y) => this.textures.getPixel(x, y - 16, 'snake', snake)?.color || -1
+					)
 				);
 			}
 			spritesGenerator.snake(
 				'cactus',
-				textureFrameToArray(
-					32,
-					(x, y) => this.textures.getPixel(x, y - 16, 'snake', 3)?.color || -1
-				)
+				textureFrameToArray(32, (x, y) => this.textures.getPixel(x, y - 16, 'cactus')?.color || -1)
 			);
-
 			if (this.scene.manager.keys[openScene] === undefined) {
 				alert(`Not found scene with key ${openScene}, load MainMenu`);
 				this.scene.start('MainMenu');
