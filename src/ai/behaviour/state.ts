@@ -20,6 +20,17 @@ class StateTable<StateT extends string | number = string, T = unknown> {
 		this.states.push(new StateTableRow(initialState, condition, finalState, onStateChanged));
 	}
 
+	addStates(
+		initialStates: StateT[],
+		condition: (this: T) => void,
+		finalState: StateT,
+		onStateChanged?: (this: T) => void
+	) {
+		this.states.push(
+			...initialStates.map(state => new StateTableRow(state, condition, finalState, onStateChanged))
+		);
+	}
+
 	getNextState(current: StateT) {
 		const row = this.states
 			.filter(x => x.initialState === current)

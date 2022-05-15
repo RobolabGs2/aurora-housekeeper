@@ -1,19 +1,10 @@
 import Steering from '../ai/steerings/steering';
+import { Biota, SnakeAnimation } from './player';
+import { Scene } from './scene';
 
-export default class DemoNPC extends Phaser.Physics.Arcade.Sprite {
-	constructor(
-		scene: Phaser.Scene,
-		x: number,
-		y: number,
-		name: string,
-		frame: string | number,
-
-		readonly maxSpeed: number,
-		readonly animationSets: Map<string, string[]>
-	) {
-		super(scene, x, y, name, frame);
-		scene.physics.world.enable(this);
-		scene.add.existing(this);
+export default class DemoNPC extends Biota {
+	constructor(scene: Scene, x: number, y: number, readonly maxSpeed: number) {
+		super(scene, x, y, 'cactus', 2);
 		this.setVelocity(1);
 	}
 
@@ -39,28 +30,8 @@ export default class DemoNPC extends Phaser.Physics.Arcade.Sprite {
 			this.last = Date.now();
 		}
 	}
-
+	animCtrl = new SnakeAnimation(`slime_${Phaser.Math.RND.between(0, 4)}`);
 	updateAnimation() {
-		const animations = this.animationSets.get('Jump')!;
-		const animsController = this.anims;
-		const x = this.body.velocity.x;
-		const y = this.body.velocity.y;
-
-		const eps = 40;
-		if (x < -eps) {
-			animsController.play('cactus_left', true);
-		} else if (x > eps) {
-			animsController.play('cactus_right', true);
-		} else if (y < 0) {
-			animsController.play('cactus_up', true);
-		} else if (y > 0) {
-			animsController.play('cactus_down', true);
-		} //else {
-		// 	const currentAnimation = animsController.currentAnim;
-		// 	if (currentAnimation) {
-		// 		const frame = currentAnimation.getLastFrame();
-		// 		this.setTexture(frame.textureKey, frame.textureFrame);
-		// 	}
-		// }
+		this.animCtrl.updateAnimation(this);
 	}
 }

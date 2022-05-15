@@ -1,4 +1,4 @@
-import Player from './player';
+import Player, { EvilVizard } from './player';
 import cyberpunkConfigJson from '../../assets/animations/cyberpunk.json';
 import slimeConfigJson from '../../assets/animations/slime.json';
 import AnimationLoader from '../utils/animation-loader';
@@ -66,23 +66,18 @@ export default class CharacterFactory {
 	}
 
 	buildPlayerCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
-		const maxSpeed = 300;
+		const maxSpeed = 128;
 		const cursors = this.scene.input.keyboard.createCursorKeys();
-		const animationSets = this.animationLibrary[spriteSheetName];
-		if (animationSets === undefined) throw new Error(`Not found animations for aurora`);
 		if (this.player) throw new Error(`Game does not support two players`);
-		const character = new Player(
-			this.scene,
-			x,
-			y,
-			spriteSheetName,
-			2,
-			this,
-			maxSpeed,
-			cursors,
-			animationSets
-		);
+		const character = new Player(this.scene, x, y, spriteSheetName, this, maxSpeed, cursors);
 		this.player = character;
+		this.addSprite(character);
+		return character;
+	}
+
+	buildVizardCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
+		const maxSpeed = 100;
+		const character = new EvilVizard(this.scene, x, y, spriteSheetName, this, maxSpeed);
 		this.addSprite(character);
 		return character;
 	}
@@ -91,7 +86,7 @@ export default class CharacterFactory {
 		const maxSpeed = 50;
 		const animationSets = this.animationLibrary[spriteSheetName];
 		if (animationSets === undefined) throw new Error(`Not found animations for test`);
-		const character = new DemoNPC(this.scene, x, y, spriteSheetName, 2, maxSpeed, animationSets);
+		const character = new DemoNPC(this.scene, x, y, maxSpeed);
 		this.addSprite(character);
 		return character;
 	}

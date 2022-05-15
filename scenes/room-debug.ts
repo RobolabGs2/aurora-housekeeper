@@ -3,8 +3,9 @@ import EasyStar from 'easystarjs';
 
 import tilemapPng from '../assets/tileset/Green_Meadow_Tileset.png';
 import cactusPng from '../assets/sprites/characters/cactus.png';
+import uiTilesetPng from '../assets/sprites/ui/ui.png';
 import { Wander } from '../src/ai/steerings/wander';
-import CharacterFactory from '../src/characters/character_factory';
+import CharacterFactory, { HumanSpriteSheetName } from '../src/characters/character_factory';
 import { Scene } from '../src/characters/scene';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
 import { GenerateGraph } from './generation';
@@ -17,11 +18,12 @@ import {
 } from './render';
 
 import Vector2 = Phaser.Math.Vector2;
+import { Pursuit } from '../src/ai/steerings/pursuit';
 
 const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
 	randomState: `!rnd,1,${Math.random()},${Math.random()},${Math.random()}`,
 	defaultZoom: 1,
-	playerMode: false,
+	playerMode: true,
 });
 
 export class RoomDebug extends Phaser.Scene implements Scene {
@@ -43,6 +45,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 	preload() {
 		this.load.image('tiles', tilemapPng);
 		this.load.image('cactus', cactusPng);
+		this.load.image('ui', uiTilesetPng);
 	}
 
 	objects = new Array<{ update: (dt: number) => void }>();
@@ -51,72 +54,6 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		const height = 500;
 		this.width = width * this.tileSize;
 		this.height = height * this.tileSize;
-		(() => {
-			const frames = 32;
-			const ctx = this.add.graphics({ x: -width });
-			ctx.lineStyle(1, 0xfffff0);
-			ctx.strokeRect(-1, -1, 36 * frames, 36 * 4);
-			const igles = new Array<number>(32);
-			for (let x = 0; x < 32; x++) {
-				igles[x] = Phaser.Math.RND.between(-6, 6);
-			}
-			const cactus = new Array(32).fill(16).map(size => new Array<number>(size).fill(-1));
-			for (let x = 0; x < 32; x++) {
-				for (let y = 0; y < 16; y++) {
-					cactus[x][y] = this.textures.getPixel(x, y, 'cactus').color;
-				}
-			}
-			for (let frame = 0; frame < frames; frame++) {
-				for (let x = 0; x < 32; x++) {
-					const dy = Math.round(8 * Math.cos(((x + frame) / 32) * 2 * Math.PI)); // +-8
-					for (let y = 0; y < 16; y++) {
-						const color = cactus[x % 32 | 0][y];
-						if (color <= 0) continue;
-						ctx.fillStyle(color);
-						const frameY = 8 + y + dy;
-						ctx.fillPoint(32 * frame + x, frameY);
-						ctx.fillPoint(32 * frame + (32 - x), 32 + frameY);
-						ctx.fillPoint(32 * frame + frameY, 32 * 2 + x);
-						ctx.fillPoint(32 * frame + frameY, 32 * 3 + (32 - x));
-					}
-				}
-			}
-			ctx.generateTexture('graphics', 32 * frames, 32 * 4);
-			ctx.destroy();
-			this.textures.addSpriteSheet(
-				'graphics_s',
-				this.textures.get('graphics').getSourceImage() as any,
-				{
-					frameWidth: 32,
-					frameHeight: 32,
-				}
-			);
-		})();
-		const range = new Array(32).fill(0).map((_, i) => i);
-		this.anims.create({
-			key: 'cactus_right',
-			frames: this.anims.generateFrameNumbers('graphics_s', { frames: range }),
-			frameRate: 32,
-			repeat: -1,
-		});
-		this.anims.create({
-			key: 'cactus_left',
-			frames: this.anims.generateFrameNumbers('graphics_s', { frames: range.map(i => i + 32) }),
-			frameRate: 32,
-			repeat: -1,
-		});
-		this.anims.create({
-			key: 'cactus_down',
-			frames: this.anims.generateFrameNumbers('graphics_s', { frames: range.map(i => i + 32 * 2) }),
-			frameRate: 32,
-			repeat: -1,
-		});
-		this.anims.create({
-			key: 'cactus_up',
-			frames: this.anims.generateFrameNumbers('graphics_s', { frames: range.map(i => i + 32 * 3) }),
-			frameRate: 32,
-			repeat: -1,
-		});
 		const mainCamera = this.cameras.main;
 		mainCamera.setRoundPixels(false);
 		// const debugCamera2 = this.cameras.add(this.game.canvas.width - width, 0, width, height);
@@ -134,7 +71,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			[TileType.Wall]: 2712, //1560, //1368, 1944
 			[TileType.Desert]: 216,
 			[TileType.Swamp]: 1752, //1168,
-			[TileType.Land]: 976,
+			[TileType.Land]: 1360, //976,
 			[TileType.Road]: 24,
 		} as Record<number, number>;
 		const rawMap = renderTileGroups(renderedGraph.tiles, typeToTileGroup, 2128);
@@ -176,20 +113,40 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 				x: cell.x + startedRoom.vertex.left,
 				y: cell.y + startedRoom.vertex.top,
 			});
-			this.characterFactory.buildPlayerCharacter('punk', p.x, p.y);
-		} //else {
+			this.characterFactory.buildPlayerCharacter('aurora', p.x, p.y);
+		}
 		renderedGraph.rooms.forEach(room => {
-			const count = Phaser.Math.RND.between(
+			const countSlimes = Phaser.Math.RND.between(
 				Math.max(1, Math.sqrt(room.emptySpace.size) / 4),
-				Math.max(4, Math.sqrt(room.emptySpace.size) / 2)
+				Math.max(4, Math.sqrt(room.emptySpace.size) / 3)
 			);
-			for (let i = 0; i < count; i++) {
+			const countVizards = Phaser.Math.RND.between(
+				Math.max(1, Math.sqrt(room.emptySpace.size) / 5),
+				Math.max(2, Math.sqrt(room.emptySpace.size) / 4)
+			);
+			for (let i = 0; i < countSlimes; i++) {
 				const pos = room.emptySpace.randomCell();
 				pos.x += room.vertex.left;
 				pos.y += room.vertex.top;
 				const { x, y } = this.tilesToPixelsCenter(pos);
 				const npc = factory.buildTestCharacter('blue', x, y);
 				npc.addSteering(new Wander(npc, 0.1));
+				if (factory.player) npc.addSteering(new Pursuit(npc, factory.player, 0.25));
+			}
+			if (factory.player) {
+				for (let i = 0; i < countVizards; i++) {
+					const skin = Phaser.Math.RND.pick([
+						'blue',
+						'yellow',
+						'green',
+						'punk',
+					] as HumanSpriteSheetName[]);
+					const pos = room.emptySpace.randomCell();
+					pos.x += room.vertex.left;
+					pos.y += room.vertex.top;
+					const { x, y } = this.tilesToPixelsCenter(pos);
+					factory.buildVizardCharacter(skin, x, y);
+				}
 			}
 		});
 		mainCamera.centerOn(this.width / 4, this.height / 4);
@@ -211,15 +168,39 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		});
 		layer.setCollision(tileIndexByConnectivity.allIndexes(typeToTileGroup[TileType.Wall]));
 		this.physics.add.collider(factory.dynamicGroup, layer);
+		this.physics.add.collider(factory.dynamicGroup, factory.dynamicGroup);
 		mainCamera.ignore(minimapGroup);
-		// debugCamera.ignore(minimapGroup);
+		debugCamera.ignore(minimapGroup);
+
+		(() => {
+			const uiMap = this.make.tilemap({ tileWidth: 32, tileHeight: 32, width: 10, height: 1 });
+			const tileset = uiMap.addTilesetImage('ui', 'ui', 32, 32, 0, 2);
+			const ui = uiMap.createBlankLayer('hp', tileset);
+			ui.putTilesAt([0, 1, 2, 3, 0], 0, 0);
+			ui.getTilesWithin().forEach(tile => (tile.tint = 0xff0f0f));
+			ui.setPosition(0, this.height);
+			const uiCam = this.cameras.add(0, 0, uiMap.widthInPixels, uiMap.heightInPixels);
+			uiCam.setBounds(ui.x, ui.y, uiMap.widthInPixels, uiMap.heightInPixels, true);
+
+			const player = this.characterFactory?.player;
+			if (player) {
+				const hp = new Array(player.hp / 2).fill(2);
+				ui.putTilesAt(hp, 0, 0);
+				player.addListener('hp', (newHP: number) => {
+					for (let i = 0; i < hp.length; i++) {
+						hp[i] = newHP < 1 ? 0 : Math.min(newHP, 2);
+						newHP -= 2;
+					}
+					ui.putTilesAt(hp, 0, 0);
+				});
+			}
+		})();
 	}
 
 	update(dt: number) {
 		if (this.characterFactory) {
-			this.characterFactory.gameObjects.forEach(function (element) {
-				element.update();
-			});
+			const count = this.characterFactory.gameObjects.length;
+			for (let i = 0; i < count; i++) this.characterFactory.gameObjects[i].update(dt);
 		}
 		this.objects.forEach(o => o.update(dt));
 	}
@@ -242,19 +223,3 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		);
 	}
 }
-
-// (() => {
-// 	console.log(
-// 		JSON.stringify(
-// 			Object.fromEntries(
-// 				Object.entries({
-// 					Left: [8, 9, 10, 11],
-// 					Right: [16, 17, 18, 19],
-// 					Up: [24, 25, 26, 27],
-// 					Down: [0, 1, 2, 3],
-// 				}).map(([k, arr]) => [k, arr.map(x => x + 32*3)])
-// 			),
-// 			null
-// 		)
-// 	);
-// })();
