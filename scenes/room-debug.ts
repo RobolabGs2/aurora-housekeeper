@@ -8,7 +8,7 @@ import { Wander } from '../src/ai/steerings/wander';
 import CharacterFactory, { HumanSpriteSheetName } from '../src/characters/character_factory';
 import { Scene } from '../src/characters/scene';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
-import { GenerateGraph } from './generation';
+import { GenerateGraph, MapGraph } from './generation';
 import {
 	renderGraph,
 	renderMinimap,
@@ -19,6 +19,7 @@ import {
 
 import Vector2 = Phaser.Math.Vector2;
 import { Pursuit } from '../src/ai/steerings/pursuit';
+import { EvilWizard } from '../src/characters/player';
 
 const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
 	randomState: `!rnd,1,${Math.random()},${Math.random()},${Math.random()}`,
@@ -86,25 +87,6 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		backgroundLayer.fill(638);
 
 		const layer = map.createLayer(0, tileset);
-		const minimapGroup = this.add.group();
-		const g = this.add.graphics({ x: -width });
-		minimapGroup.add(g);
-		this.textures.addCanvas('minimap', renderMinimap(renderedGraph.tiles));
-		minimapGroup.add(this.add.image(-width / 2, height / 2, 'minimap'));
-		g.lineStyle(2, 0x000000);
-		g.strokeRect(0, 0, width, height);
-		g.lineStyle(2, 0xff0000);
-		graph.vertexes.forEach((circle, i) => {
-			minimapGroup.add(
-				this.add.text(circle.x + g.x - 5, circle.y + g.y - 5, i.toString(), {
-					align: 'center',
-					color: '#0000ff',
-				})
-			);
-			g.strokeCircleShape(circle);
-		});
-		g.lineStyle(2, 0x00ffff);
-		graph.roads.forEach(g.strokeLineShape.bind(g));
 		const factory = (this.characterFactory = new CharacterFactory(this));
 		if (playerMode) {
 			const startedRoom = Phaser.Math.RND.pick(renderedGraph.rooms);
@@ -115,6 +97,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			});
 			this.characterFactory.buildPlayerCharacter('aurora', p.x, p.y);
 		}
+		const layerCaves = map.createBlankLayer('caves', tileset);
 		renderedGraph.rooms.forEach(room => {
 			const countSlimes = Phaser.Math.RND.between(
 				Math.max(1, Math.sqrt(room.emptySpace.size) / 4),
@@ -145,7 +128,10 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 					pos.x += room.vertex.left;
 					pos.y += room.vertex.top;
 					const { x, y } = this.tilesToPixelsCenter(pos);
-					factory.buildVizardCharacter(skin, x, y);
+					factory.buildVizardCharacter(skin, x, y).on('destroy', function (this: EvilWizard) {
+						const pos = (this.scene as RoomDebug).pixelsToTiles(this);
+						layerCaves.putTileAt(2952, pos.x, pos.y);
+					});
 				}
 			}
 		});
@@ -169,8 +155,12 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		layer.setCollision(tileIndexByConnectivity.allIndexes(typeToTileGroup[TileType.Wall]));
 		this.physics.add.collider(factory.dynamicGroup, layer);
 		this.physics.add.collider(factory.dynamicGroup, factory.dynamicGroup);
+
+		const minimapGroup = this.add.group();
+		this.addMinimap(width, minimapGroup, renderedGraph, height, graph);
 		mainCamera.ignore(minimapGroup);
-		debugCamera.ignore(minimapGroup);
+		debugCamera.setVisible(false);
+		// debugCamera.ignore(minimapGroup);
 
 		(() => {
 			const uiMap = this.make.tilemap({ tileWidth: 32, tileHeight: 32, width: 10, height: 1 });
@@ -179,9 +169,6 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			ui.putTilesAt([0, 1, 2, 3, 0], 0, 0);
 			ui.getTilesWithin().forEach(tile => (tile.tint = 0xff0f0f));
 			ui.setPosition(0, this.height);
-			const uiCam = this.cameras.add(0, 0, uiMap.widthInPixels, uiMap.heightInPixels);
-			uiCam.setBounds(ui.x, ui.y, uiMap.widthInPixels, uiMap.heightInPixels, true);
-
 			const player = this.characterFactory?.player;
 			if (player) {
 				const hp = new Array(player.hp / 2).fill(2);
@@ -194,7 +181,42 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 					ui.putTilesAt(hp, 0, 0);
 				});
 			}
+
+			const uiCam = this.cameras.add(
+				20,
+				this.scale.height - uiMap.heightInPixels - 20,
+				uiMap.widthInPixels,
+				uiMap.heightInPixels
+			);
+			uiCam.setBounds(ui.x, ui.y, uiMap.widthInPixels, uiMap.heightInPixels, true);
 		})();
+	}
+
+	private addMinimap(
+		width: number,
+		minimapGroup: Phaser.GameObjects.Group,
+		renderedGraph: ReturnType<typeof renderGraph>,
+		height: number,
+		graph: MapGraph
+	) {
+		const g = this.add.graphics({ x: -width });
+		minimapGroup.add(g);
+		this.textures.addCanvas('minimap', renderMinimap(renderedGraph.tiles));
+		minimapGroup.add(this.add.image(-width / 2, height / 2, 'minimap'));
+		g.lineStyle(2, 0x000000);
+		g.strokeRect(0, 0, width, height);
+		g.lineStyle(2, 0xff0000);
+		graph.vertexes.forEach((circle, i) => {
+			minimapGroup.add(
+				this.add.text(circle.x + g.x - 5, circle.y + g.y - 5, i.toString(), {
+					align: 'center',
+					color: '#0000ff',
+				})
+			);
+			g.strokeCircleShape(circle);
+		});
+		g.lineStyle(2, 0x00ffff);
+		graph.roads.forEach(g.strokeLineShape.bind(g));
 	}
 
 	update(dt: number) {

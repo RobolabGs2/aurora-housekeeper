@@ -1,4 +1,4 @@
-import Player, { EvilVizard } from './player';
+import Player, { EvilWizard } from './player';
 import cyberpunkConfigJson from '../../assets/animations/cyberpunk.json';
 import slimeConfigJson from '../../assets/animations/slime.json';
 import AnimationLoader from '../utils/animation-loader';
@@ -16,6 +16,14 @@ const slimeSpriteSheet = 'slime' as const;
 enum DepthLayers {
 	Stuff = 1,
 	Characters = 2,
+}
+function addKeys<T extends string>(
+	keyboard: Phaser.Input.Keyboard.KeyboardPlugin,
+	mapping: Record<T, number>
+): Record<T, Phaser.Input.Keyboard.Key> {
+	const keys = {} as Record<T, Phaser.Input.Keyboard.Key>;
+	for (const key in mapping) keys[key] = keyboard.addKey(mapping[key]);
+	return keys;
 }
 
 export type HumanSpriteSheetName = typeof cyberSpritesheets[number];
@@ -67,9 +75,16 @@ export default class CharacterFactory {
 
 	buildPlayerCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
 		const maxSpeed = 128;
-		const cursors = this.scene.input.keyboard.createCursorKeys();
 		if (this.player) throw new Error(`Game does not support two players`);
-		const character = new Player(this.scene, x, y, spriteSheetName, this, maxSpeed, cursors);
+		const cursors = addKeys(this.scene.input.keyboard, {
+			up: Phaser.Input.Keyboard.KeyCodes.W,
+			down: Phaser.Input.Keyboard.KeyCodes.S,
+			left: Phaser.Input.Keyboard.KeyCodes.A,
+			right: Phaser.Input.Keyboard.KeyCodes.D,
+			space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+			shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
+		});
+		const character = new Player(this.scene, x, y, spriteSheetName, this, maxSpeed, cursors, 20);
 		this.player = character;
 		this.addSprite(character);
 		return character;
@@ -77,7 +92,7 @@ export default class CharacterFactory {
 
 	buildVizardCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
 		const maxSpeed = 100;
-		const character = new EvilVizard(this.scene, x, y, spriteSheetName, this, maxSpeed);
+		const character = new EvilWizard(this.scene, x, y, spriteSheetName, this, maxSpeed);
 		this.addSprite(character);
 		return character;
 	}

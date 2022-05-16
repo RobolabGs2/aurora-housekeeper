@@ -5,8 +5,7 @@ import Vector2 = Phaser.Math.Vector2;
 import Sprite = Phaser.Physics.Arcade.Sprite;
 
 export class Escape implements Steering {
-	constructor(private owner: Sprite, private pursuer: Sprite, public force: number) {}
-
+	constructor(protected owner: Sprite, protected pursuer: Sprite, public force: number) {}
 	calculateImpulse() {
 		const pursuerDirection = this.pursuer.body.velocity;
 
@@ -20,7 +19,6 @@ export class Escape implements Steering {
 			this.pursuer.x + predictTime * pursuerDirection.x,
 			this.pursuer.y + predictTime * pursuerDirection.y
 		);
-
-		return new Flee(this.owner, predictVector, this.force).calculateImpulse();
+		return Flee.impulse(this.owner, predictVector);
 	}
 }

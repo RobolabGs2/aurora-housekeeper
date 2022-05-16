@@ -11,13 +11,17 @@ export class Flee implements Steering {
 	) {}
 
 	calculateImpulse() {
-		const toPursuer = new Vector2(this.pursuer.x - this.owner.x, this.pursuer.y - this.owner.y);
+		return Flee.impulse(this.owner, this.pursuer);
+	}
 
-		if (isNaN(toPursuer.x)) return new Vector2(0, 0);
+	static impulse(owner: { x: number; y: number }, pursuer: { x: number; y: number }) {
+		const toPursuer = new Vector2(pursuer.x - owner.x, pursuer.y - owner.y);
+
+		if (isNaN(toPursuer.x)) return toPursuer.reset();
 
 		const x = Math.abs(toPursuer.x) < 1 ? 0 : -Math.sign(toPursuer.x);
 		const y = Math.abs(toPursuer.y) < 1 ? 0 : -Math.sign(toPursuer.y);
 
-		return new Vector2(x, y);
+		return toPursuer.set(x, y);
 	}
 }
