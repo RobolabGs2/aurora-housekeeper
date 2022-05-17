@@ -1,7 +1,13 @@
 import Geom = Phaser.Geom;
 
+export enum Biom {
+	Swamp,
+	Desert,
+	Land,
+}
+
 export class Vertex extends Geom.Circle {
-	constructor(x: number, y: number, r: number) {
+	constructor(x: number, y: number, r: number, readonly biom: Biom) {
 		super(x, y, r);
 	}
 	roads: Map<Vertex, Road> = new Map();
@@ -56,7 +62,8 @@ export function GenerateGraph({ width, height, rndState, roomsCount }: Generator
 			const circle = new Vertex(
 				RND.between(0, width),
 				RND.between(0, height),
-				RND.between(10, 100)
+				RND.between(10, 100),
+				RND.pick([Biom.Desert, Biom.Land, Biom.Swamp])
 			);
 			if (Geom.Intersects.GetCircleToRectangle(circle, borders).length) continue;
 			if (vertexes.find(Geom.Intersects.CircleToCircle.bind(null, circle))) continue;

@@ -1,4 +1,4 @@
-import Player, { EvilWizard } from './player';
+import Player, { EvilWizard, FireballConfig } from './player';
 import cyberpunkConfigJson from '../../assets/animations/cyberpunk.json';
 import slimeConfigJson from '../../assets/animations/slime.json';
 import AnimationLoader from '../utils/animation-loader';
@@ -84,35 +84,41 @@ export default class CharacterFactory {
 			space: Phaser.Input.Keyboard.KeyCodes.SPACE,
 			shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
 		});
-		const character = new Player(this.scene, x, y, spriteSheetName, this, maxSpeed, cursors, 20);
+		const character = new Player(this.scene, x, y, spriteSheetName, this, maxSpeed, cursors, 20, {
+			color: 0xaf0faa,
+			cooldown: 900,
+			damage: 1,
+			radius: 6,
+		});
 		this.player = character;
 		this.addSprite(character);
 		return character;
 	}
 
-	buildVizardCharacter(spriteSheetName: HumanSpriteSheetName, x: number, y: number) {
-		const maxSpeed = 100;
-		const character = new EvilWizard(this.scene, x, y, spriteSheetName, this, maxSpeed);
+	buildVizardCharacter(
+		spriteSheetName: HumanSpriteSheetName,
+		maxSpeed: number,
+		hp: number,
+		x: number,
+		y: number,
+		fireball: FireballConfig
+	) {
+		const character = new EvilWizard(
+			this.scene,
+			x,
+			y,
+			spriteSheetName,
+			this,
+			maxSpeed,
+			hp,
+			fireball
+		);
 		this.addSprite(character);
 		return character;
 	}
 
-	buildTestCharacter(x: number, y: number) {
-		const maxSpeed = 50;
-		const snakes = [
-			...cyberSpritesheets,
-			'cactus',
-			'snake_0',
-			'snake_1',
-			'snake_2',
-			'snake_3',
-			'slime_0',
-			'slime_1',
-			'slime_2',
-			'slime_3',
-			'slime_3',
-		];
-		const character = new DemoNPC(this.scene, x, y, Phaser.Math.RND.pick(snakes), maxSpeed);
+	buildTestCharacter(skin: string, maxSpeed: number, hp: number, x: number, y: number) {
+		const character = new DemoNPC(this.scene, x, y, skin, maxSpeed, hp);
 		this.addSprite(character);
 		return character;
 	}

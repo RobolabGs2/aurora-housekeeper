@@ -1,7 +1,8 @@
 import { Geom } from 'phaser';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
 
-import { MapGraph, GenerateGraph, Vertex } from './generation';
+import { Biom, MapGraph, Vertex } from './generation';
+import { BiomDescription } from './room-debug';
 
 import Vector2 = Phaser.Math.Vector2;
 
@@ -330,7 +331,12 @@ class CellSet {
 	}
 }
 
-export function renderGraph(graph: MapGraph, width: number, height: number) {
+export function renderGraph(
+	graph: MapGraph,
+	width: number,
+	height: number,
+	biomsConfig: Record<Biom, BiomDescription>
+) {
 	const rawMap = createMatrix(TileType.Wall, width, height);
 	const rooms = graph.vertexes.map(v => {
 		let room = roomPostprocessing(generateRoom(v));
@@ -341,7 +347,7 @@ export function renderGraph(graph: MapGraph, width: number, height: number) {
 		return room;
 	});
 	rooms.forEach(room => {
-		const biom = Phaser.Math.RND.pick([TileType.Desert, TileType.Land, TileType.Swamp]);
+		const biom = biomsConfig[room.vertex.biom].landscapeTileGroup;
 		room.emptySpace.forEach(cell => {
 			rawMap[cell.y + room.vertex.top][cell.x + room.vertex.left] = biom;
 		});

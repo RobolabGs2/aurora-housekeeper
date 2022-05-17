@@ -56,11 +56,18 @@ class SpritesGenerator {
 					let r = Phaser.Math.RotateAround({ x, y: frameY }, cx, cy, -45);
 					ctx.fillPoint(frameX + r.x, frameWithSpacing * i++ + r.y, pixelSizeByVector(r));
 					r = Phaser.Math.RotateAround({ x, y: frameY }, cx, cy, -(90 + 45));
-					ctx.fillPoint(frameX + r.x, frameWithSpacing * i++ + r.y, pixelSizeByVector(r));
+					ctx.fillPoint(
+						frameX + r.x,
+						frameWithSpacing * i++ + (frameWidth - r.y),
+						pixelSizeByVector(r)
+					);
 					r = Phaser.Math.RotateAround({ x, y: frameY }, cx, cy, 45);
 					ctx.fillPoint(frameX + r.x, frameWithSpacing * i++ + r.y, pixelSizeByVector(r));
-					r = Phaser.Math.RotateAround({ x, y: frameY }, cx, cy, 90);
-					ctx.fillPoint(frameX + r.x, frameWithSpacing * i++ + r.y, pixelSizeByVector(r));
+					ctx.fillPoint(
+						frameX + (frameWidth - r.x),
+						frameWithSpacing * i++ + r.y,
+						pixelSizeByVector(r)
+					);
 				}
 			}
 		}

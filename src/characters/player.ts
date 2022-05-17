@@ -10,14 +10,14 @@ import Vector2 = Phaser.Math.Vector2;
 
 export class SnakeAnimation {
 	private static dirs = [
-		[new Vector2(1, 0).normalize(), 'up'],
-		[new Vector2(1, 1).normalize(), 'right_up'],
-		[new Vector2(0, 1).normalize(), 'right'],
-		[new Vector2(-1, 1).normalize(), 'right_down'],
-		[new Vector2(-1, 0).normalize(), 'down'],
-		[new Vector2(-1, -1).normalize(), 'left_down'],
-		[new Vector2(0, -1).normalize(), 'left'],
-		[new Vector2(1, -1).normalize(), 'left_up'],
+		[new Vector2(0, -1).normalize(), 'up'],
+		[new Vector2(1, -1).normalize(), 'right_up'],
+		[new Vector2(1, 0).normalize(), 'right'],
+		[new Vector2(1, 1).normalize(), 'right_down'],
+		[new Vector2(0, 1).normalize(), 'down'],
+		[new Vector2(-1, 1).normalize(), 'left_down'],
+		[new Vector2(-1, 0).normalize(), 'left'],
+		[new Vector2(-1, -1).normalize(), 'left_up'],
 	] as [Vector2, string][];
 	constructor(readonly name: string) {}
 	updateAnimation(sprite: Phaser.Physics.Arcade.Sprite) {
@@ -34,7 +34,7 @@ export class SnakeAnimation {
 		const anim = `${this.name}_${dir}`;
 		if (c > 0.1) {
 			if (sprite.anims.currentAnim?.key === anim) sprite.anims.resume();
-			else sprite.anims.play(anim, true);
+			else sprite.anims.play({ key: anim, startFrame: Phaser.Math.RND.between(0, 30) }, true);
 		} else {
 			if (sprite.anims.currentAnim) sprite.anims.pause();
 		}
@@ -62,10 +62,26 @@ export class Biota extends Phaser.Physics.Arcade.Sprite {
 		super(scene, x, y, name);
 		scene.physics.world.enable(this);
 		scene.add.existing(this);
+		const resetTintConfig: Phaser.Types.Time.TimerEventConfig = {
+			delay: 500,
+			callback: this.clearTint,
+			callbackScope: this,
+		};
+		let resetTintTimer: Phaser.Time.TimerEvent | undefined;
 		this.addListener('damage', (value: number) => {
+			this.tint = 0xff7777;
+			resetTintTimer?.destroy();
+			resetTintTimer = this.scene.time.addEvent(resetTintConfig);
 			this.hp -= value;
 		});
 	}
+}
+
+export interface FireballConfig {
+	damage: number;
+	cooldown: number;
+	color: number;
+	radius: number;
 }
 
 export class Wizard extends Biota {
@@ -103,10 +119,15 @@ export class Wizard extends Biota {
 		name: string,
 		readonly factory: CharacterFactory,
 		readonly maxSpeed: number,
-		maxHP: number
+		maxHP: number,
+		readonly fireball: FireballConfig
 	) {
 		super(scene, x, y, name, maxHP);
-		this.movingTable.addState('Attack', () => scene.time.now - this.lastAttack > 1000, 'Walk');
+		this.movingTable.addState(
+			'Attack',
+			() => scene.time.now - this.lastAttack > this.fireball.cooldown,
+			'Walk'
+		);
 		this.movingTable.onStateChanged('Run', function () {
 			this.speed = 2 * this.maxSpeed;
 		});
@@ -121,7 +142,7 @@ export class Wizard extends Biota {
 	spawnFireball(dirV: Vector2) {
 		const scene = this.scene;
 		this.lastAttack = scene.time.now;
-		const fireball = scene.add.circle(0, 0, 8, 0xfff000);
+		const fireball = scene.add.circle(0, 0, this.fireball.radius, this.fireball.color);
 		scene.physics.add.existing(fireball);
 		fireball.setDepth(4);
 		fireball.setPosition(this.x, this.y);
@@ -129,8 +150,8 @@ export class Wizard extends Biota {
 		(fireball.body as Phaser.Physics.Arcade.Body).setVelocity(dirV.x, dirV.y);
 		scene.physics.add.collider(this.factory.dynamicGroup, fireball, (b1, b2) => {
 			if (b1 == this || b2 == this) return;
-			b1.emit('damage', 1);
-			b2.emit('damage', 1);
+			b1.emit('damage', this.fireball.damage);
+			b2.emit('damage', this.fireball.damage);
 			fireball.destroy();
 		});
 		scene.time.addEvent({
@@ -163,9 +184,10 @@ export default class Player extends Wizard {
 		factory: CharacterFactory,
 		maxSpeed: number,
 		readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys,
-		maxHP = 10
+		maxHP: number,
+		fireball: FireballConfig
 	) {
-		super(scene, x, y, name, factory, maxSpeed, maxHP);
+		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
 		this.addListener('die', (prevent: (hp: number) => void) => prevent(3));
 		const camera = scene.cameras.main;
 		camera.zoom = 1.5; // если нужно приблизить камеру к авроре, чтобы увидеть перемещение камеры
@@ -242,9 +264,10 @@ export class EvilWizard extends Wizard {
 		name: string,
 		factory: CharacterFactory,
 		maxSpeed: number,
-		maxHP = 10
+		maxHP: number,
+		fireball: FireballConfig
 	) {
-		super(scene, x, y, name, factory, maxSpeed, maxHP);
+		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
 		const a = this.movingTable;
 		a.addState('Walk', () => this.behaivorState === 'Fire', 'Attack', this.spawnFireball);
 		a.addState('Walk', () => this.behaivorState === 'Escape', 'Run');
@@ -283,7 +306,9 @@ export class EvilWizard extends Wizard {
 	] as const;
 	spawnFireball() {
 		super.spawnFireball(
-			new Vector2(this.factory.player!.x - this.x, this.factory.player!.y - this.y)
+			new Vector2(this.factory.player!.x - this.x, this.factory.player!.y - this.y).rotate(
+				(Phaser.Math.RND.normal() * Math.PI) / 6
+			)
 		);
 	}
 	update() {

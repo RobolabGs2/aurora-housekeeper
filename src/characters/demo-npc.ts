@@ -8,9 +8,10 @@ export default class DemoNPC extends Biota {
 		x: number,
 		y: number,
 		readonly snakeName: string,
-		readonly maxSpeed: number
+		readonly maxSpeed: number,
+		hp: number
 	) {
-		super(scene, x, y, 'cactus', 2);
+		super(scene, x, y, 'cactus', hp);
 		this.setVelocity(1);
 	}
 

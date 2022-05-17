@@ -8,7 +8,7 @@ import { Wander } from '../src/ai/steerings/wander';
 import CharacterFactory, { HumanSpriteSheetName } from '../src/characters/character_factory';
 import { Scene } from '../src/characters/scene';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
-import { GenerateGraph, MapGraph } from './generation';
+import { Biom, GenerateGraph, MapGraph } from './generation';
 import {
 	renderGraph,
 	renderMinimap,
@@ -19,13 +19,109 @@ import {
 
 import Vector2 = Phaser.Math.Vector2;
 import { Pursuit } from '../src/ai/steerings/pursuit';
-import { EvilWizard } from '../src/characters/player';
+import { EvilWizard, FireballConfig } from '../src/characters/player';
 
 const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
 	randomState: `!rnd,1,${Math.random()},${Math.random()},${Math.random()}`,
 	defaultZoom: 1,
 	playerMode: true,
 });
+
+interface MobConfig {
+	hp: number;
+	maxSpeed: number;
+	skin: string[];
+	count: number;
+	type: 'Wizard' | 'Snake';
+	fireball?: FireballConfig;
+}
+
+export interface BiomDescription {
+	// [TileType.Wall]: 2712, //1560, //1368, 1944
+	// [TileType.Desert]: 216,
+	// [TileType.Swamp]: 1752, //1168,
+	// [TileType.Land]: 1360, //976,
+	landscapeTileGroup: number;
+	mobs: MobConfig[];
+}
+
+const biomsConfig: Record<Biom, BiomDescription> = {
+	[Biom.Desert]: {
+		landscapeTileGroup: 216,
+		mobs: [
+			{
+				hp: 3,
+				maxSpeed: 50,
+				skin: ['snake_1', 'cactus', 'aurora', 'yellow'],
+				count: 15,
+				type: 'Snake',
+			},
+			{
+				hp: 5,
+				maxSpeed: 90,
+				skin: ['yellow'],
+				count: 2,
+				type: 'Wizard',
+				fireball: {
+					color: 0xffaf0f,
+					cooldown: 1100,
+					damage: 1,
+					radius: 7,
+				},
+			},
+		],
+	},
+	[Biom.Swamp]: {
+		landscapeTileGroup: 1752,
+		mobs: [
+			{
+				hp: 3,
+				maxSpeed: 40,
+				skin: ['snake_2', 'snake_3', 'green', 'slime_0', 'slime_1'],
+				count: 15,
+				type: 'Snake',
+			},
+			{
+				hp: 5,
+				maxSpeed: 70,
+				skin: ['green', 'blue'],
+				count: 2,
+				type: 'Wizard',
+				fireball: {
+					color: 0x0edf1f,
+					cooldown: 1100,
+					damage: 1,
+					radius: 7,
+				},
+			},
+		],
+	},
+	[Biom.Land]: {
+		landscapeTileGroup: 1360,
+		mobs: [
+			{
+				hp: 2,
+				maxSpeed: 60,
+				skin: ['snake_0', 'snake_2', 'slime_2', 'slime_3', 'slime_4'],
+				count: 15,
+				type: 'Snake',
+			},
+			{
+				hp: 6,
+				maxSpeed: 110,
+				skin: ['punk'],
+				count: 2,
+				type: 'Wizard',
+				fireball: {
+					color: 0xfa1f0f,
+					cooldown: 800,
+					damage: 1,
+					radius: 4,
+				},
+			},
+		],
+	},
+};
 
 export class RoomDebug extends Phaser.Scene implements Scene {
 	public readonly finder = new EasyStar.js();
@@ -65,14 +161,14 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 
 		const graph = GenerateGraph({ width, height, rndState: randomState, roomsCount: 15 });
 		console.log('Graph generated');
-		const renderedGraph = renderGraph(graph, width, height);
+		const renderedGraph = renderGraph(graph, width, height, biomsConfig);
 		console.log('Graph rendered');
 		// const rawMap = debugRoom(width, height);
 		const typeToTileGroup = {
 			[TileType.Wall]: 2712, //1560, //1368, 1944
-			[TileType.Desert]: 216,
-			[TileType.Swamp]: 1752, //1168,
-			[TileType.Land]: 1360, //976,
+			[216]: 216,
+			[1752]: 1752, //1168,
+			[1360]: 1360, //976,
 			[TileType.Road]: 24,
 		} as Record<number, number>;
 		const rawMap = renderTileGroups(renderedGraph.tiles, typeToTileGroup, 2128);
@@ -99,39 +195,38 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		}
 		const layerCaves = map.createBlankLayer('caves', tileset);
 		renderedGraph.rooms.forEach(room => {
-			const countSlimes = Phaser.Math.RND.between(
-				Math.max(1, Math.sqrt(room.emptySpace.size) / 4),
-				Math.max(4, Math.sqrt(room.emptySpace.size) / 3)
-			);
-			const countVizards = Phaser.Math.RND.between(
-				Math.max(1, Math.sqrt(room.emptySpace.size) / 5),
-				Math.max(2, Math.sqrt(room.emptySpace.size) / 4)
-			);
-			for (let i = 0; i < countSlimes; i++) {
-				const pos = room.emptySpace.randomCell();
-				pos.x += room.vertex.left;
-				pos.y += room.vertex.top;
-				const { x, y } = this.tilesToPixelsCenter(pos);
-				const npc = factory.buildTestCharacter(x, y);
-				npc.addSteering(new Wander(npc, 0.1));
-				if (factory.player) npc.addSteering(new Pursuit(npc, factory.player, 0.25));
-			}
-			if (factory.player) {
-				for (let i = 0; i < countVizards; i++) {
-					const skin = Phaser.Math.RND.pick([
-						'blue',
-						'yellow',
-						'green',
-						'punk',
-					] as HumanSpriteSheetName[]);
+			const config = biomsConfig[room.vertex.biom];
+			for (const mobType of config.mobs) {
+				for (let i = 0; i < mobType.count; i++) {
 					const pos = room.emptySpace.randomCell();
 					pos.x += room.vertex.left;
 					pos.y += room.vertex.top;
 					const { x, y } = this.tilesToPixelsCenter(pos);
-					factory.buildVizardCharacter(skin, x, y).on('destroy', function (this: EvilWizard) {
-						const pos = (this.scene as RoomDebug).pixelsToTiles(this);
-						layerCaves.putTileAt(2952, pos.x, pos.y);
-					});
+					const skin = Phaser.Math.RND.pick(mobType.skin);
+					switch (mobType.type) {
+						case 'Snake':
+							// eslint-disable-next-line no-case-declarations
+							const npc = factory.buildTestCharacter(skin, mobType.maxSpeed, mobType.hp, x, y);
+							npc.addSteering(new Wander(npc, 0.1));
+							if (factory.player) npc.addSteering(new Pursuit(npc, factory.player, 0.25));
+							break;
+						case 'Wizard':
+							if (factory.player) {
+								factory
+									.buildVizardCharacter(
+										skin as HumanSpriteSheetName,
+										mobType.maxSpeed,
+										mobType.hp,
+										x,
+										y,
+										mobType.fireball!
+									)
+									.on('destroy', function (this: EvilWizard) {
+										const pos = (this.scene as RoomDebug).pixelsToTiles(this);
+										layerCaves.putTileAt(2952, pos.x, pos.y);
+									});
+							}
+					}
 				}
 			}
 		});
@@ -190,6 +285,11 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 			);
 			uiCam.setBounds(ui.x, ui.y, uiMap.widthInPixels, uiMap.heightInPixels, true);
 		})();
+		let debugGraphic: undefined | Phaser.GameObjects.Graphics;
+		this.input.keyboard.on('keydown-P', () => {
+			if (debugGraphic) debugGraphic = (debugGraphic.destroy(), undefined);
+			else debugGraphic = this.physics.world.createDebugGraphic();
+		});
 	}
 
 	private addMinimap(
