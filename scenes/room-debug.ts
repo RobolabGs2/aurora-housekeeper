@@ -184,17 +184,31 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 
 		const layer = map.createLayer(0, tileset);
 		const factory = (this.characterFactory = new CharacterFactory(this));
+		const respwanPoints = new Array<Phaser.Tilemaps.Tile>();
 		if (playerMode) {
 			const startedRoom = Phaser.Math.RND.pick(renderedGraph.rooms);
 			const cell = startedRoom.emptySpace.randomCell();
-			const p = this.tilesToPixelsCenter({
+			const tile = {
 				x: cell.x + startedRoom.vertex.left,
 				y: cell.y + startedRoom.vertex.top,
+			};
+			const p = this.tilesToPixelsCenter(tile);
+			const player = this.characterFactory.buildPlayerCharacter('aurora', p.x, p.y);
+			player.addListener('die', (prevent: (hp: number) => void) => {
+				prevent(player.maxHP);
+				const closestRespawn = Phaser.Math.RND.pick(respwanPoints);
+				const pos = this.tilesToPixelsCenter(closestRespawn);
+				player.setPosition(pos.x, pos.y);
 			});
-			this.characterFactory.buildPlayerCharacter('aurora', p.x, p.y);
 		}
 		const layerCaves = map.createBlankLayer('caves', tileset);
+		const respawnLayer = map.createBlankLayer('respawn', tileset);
 		renderedGraph.rooms.forEach(room => {
+			const respawnPoint = room.emptySpace.randomCell();
+			respawnPoint.x += room.vertex.left;
+			respawnPoint.y += room.vertex.top;
+			respwanPoints.push(respawnLayer.putTileAt(262, respawnPoint.x, respawnPoint.y));
+
 			const config = biomsConfig[room.vertex.biom];
 			for (const mobType of config.mobs) {
 				for (let i = 0; i < mobType.count; i++) {

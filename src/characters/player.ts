@@ -188,7 +188,6 @@ export default class Player extends Wizard {
 		fireball: FireballConfig
 	) {
 		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
-		this.addListener('die', (prevent: (hp: number) => void) => prevent(3));
 		const camera = scene.cameras.main;
 		camera.zoom = 1.5; // если нужно приблизить камеру к авроре, чтобы увидеть перемещение камеры
 		camera.useBounds = true;
