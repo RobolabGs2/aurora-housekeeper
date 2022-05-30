@@ -128,7 +128,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 
 	tileSize = 32;
 	constructor() {
-		super({ key: 'RoomDebug' });
+		super({ key: 'Play' });
 	}
 
 	width = 0;

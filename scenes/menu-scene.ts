@@ -24,7 +24,11 @@ export class MainMenuScene extends Phaser.Scene {
 				50,
 				`Controls:
 
-Moving:          Arrows
+Move:         WASD
+Run:          Shift
+Fire:         Space
+Zoom:         Q, E
+Map:          M
 			`,
 				{
 					color: '#FFFFFF',
