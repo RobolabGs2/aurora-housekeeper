@@ -19,7 +19,7 @@ export class SnakeAnimation {
 		[new Vector2(-1, 0).normalize(), 'left'],
 		[new Vector2(-1, -1).normalize(), 'left_up'],
 	] as [Vector2, string][];
-	constructor(readonly name: string) {}
+	constructor(readonly name: string) { }
 	updateAnimation(sprite: Phaser.Physics.Arcade.Sprite) {
 		const [c, dir] = SnakeAnimation.dirs.reduce(
 			([max, a], [dir, da]) => {
@@ -176,6 +176,7 @@ export class Wizard extends Biota {
 }
 
 export default class Player extends Wizard {
+	mouse = new Vector2()
 	constructor(
 		scene: Scene,
 		x: number,
@@ -196,39 +197,15 @@ export default class Player extends Wizard {
 		camera.startFollow(this);
 
 		const a = this.movingTable;
-		a.addState('Walk', () => cursors.space.isDown, 'Attack', this.spawnFireball);
+		a.addState('Walk', () => scene.input.activePointer.isDown, 'Attack', this.spawnFireball);
 		a.addState('Walk', () => cursors.shift.isDown, 'Run');
 		a.addState('Run', () => cursors.shift.isUp || this.idle, 'Walk');
 	}
 
 	spawnFireball() {
-		const enimies = this.scene.physics
-			.overlapCirc(this.x, this.y, 500, true, false)
-			.map(b => b.gameObject)
-			.filter(o => o instanceof Biota) as Biota[];
-		const dirV = this.idle
-			? Player.dirs[this.dir][0].clone()
-			: this.body.velocity.clone().normalize();
-		if (enimies.length > 0) {
-			let min = -2;
-			let bufferV = new Vector2();
-			let closest = new Vector2();
-			for (const enimy of enimies) {
-				bufferV.x = enimy.x - this.x;
-				bufferV.y = enimy.y - this.y;
-				const cos = bufferV.normalize().dot(dirV);
-				if (cos > min) {
-					min = cos;
-					const tmp = closest;
-					closest = bufferV;
-					bufferV = tmp;
-				}
-			}
-			if (min > Math.cos(Math.PI / 6)) {
-				dirV.set(closest.x, closest.y);
-			}
-		}
-		super.spawnFireball(dirV);
+		const dx = this.scene.input.activePointer.worldX - this.x;
+		const dy = this.scene.input.activePointer.worldY - this.y;
+		super.spawnFireball(new Vector2(dx, dy).normalize());
 	}
 	update() {
 		const body = this.body as Phaser.Physics.Arcade.Body;

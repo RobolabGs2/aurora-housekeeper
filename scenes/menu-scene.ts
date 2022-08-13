@@ -26,7 +26,7 @@ export class MainMenuScene extends Phaser.Scene {
 
 Move:         WASD
 Run:          Shift
-Fire:         Space
+Fire:         Mouse click
 Zoom:         Q, E
 Map:          M
 			`,
