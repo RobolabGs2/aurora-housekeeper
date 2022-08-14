@@ -7,6 +7,9 @@ import { Wander } from '../ai/steerings/wander';
 import CharacterFactory from './character_factory';
 import { Scene } from './scene';
 import Vector2 = Phaser.Math.Vector2;
+import cursorAttackURL from '../../assets/sprites/ui/cursor_attack.png';
+import cursorRunURL from '../../assets/sprites/ui/cursor_run.png';
+import cursorReloadURL from '../../assets/sprites/ui/cursor_time.png';
 
 export class SnakeAnimation {
 	private static dirs = [
@@ -112,6 +115,10 @@ export class Wizard extends Biota {
 	movingState: 'Walk' | 'Run' | 'Attack' = 'Walk';
 	speed = this.maxSpeed;
 
+	public get canAttack(): boolean {
+		return this.scene.time.now - this.lastAttack > this.fireball.cooldown;
+	}
+
 	constructor(
 		scene: Scene,
 		x: number,
@@ -123,11 +130,7 @@ export class Wizard extends Biota {
 		readonly fireball: FireballConfig
 	) {
 		super(scene, x, y, name, maxHP);
-		this.movingTable.addState(
-			'Attack',
-			() => scene.time.now - this.lastAttack > this.fireball.cooldown,
-			'Walk'
-		);
+		this.movingTable.addState('Attack', () => this.canAttack, 'Walk');
 		this.movingTable.onStateChanged('Run', function () {
 			this.speed = 2 * this.maxSpeed;
 		});
@@ -200,13 +203,23 @@ export default class Player extends Wizard {
 		a.addState('Walk', () => scene.input.activePointer.isDown, 'Attack', this.spawnFireball);
 		a.addState('Walk', () => cursors.shift.isDown, 'Run');
 		a.addState('Run', () => cursors.shift.isUp || this.idle, 'Walk');
+		a.onStateChanged('Attack', () => scene.input.setDefaultCursor(`url(${cursorReloadURL}) ${32 / 2} ${32 / 2}, wait`))
+		a.onStateChanged('Walk', () => scene.input.setDefaultCursor(`url(${cursorAttackURL}) ${32 / 2} ${32 / 2}, pointer`))
+		a.onStateChanged('Run', () => scene.input.setDefaultCursor(`url(${cursorRunURL}) ${32 / 2} ${32 / 2}, waitsd`))
+		
 	}
 
 	spawnFireball() {
+		const eyeDir = this.getEyeDir();
+		super.spawnFireball(eyeDir);
+	}
+	private getEyeDir() {
 		const dx = this.scene.input.activePointer.worldX - this.x;
 		const dy = this.scene.input.activePointer.worldY - this.y;
-		super.spawnFireball(new Vector2(dx, dy).normalize());
+		const eyeDir = new Vector2(dx, dy).normalize();
+		return eyeDir;
 	}
+
 	update() {
 		const body = this.body as Phaser.Physics.Arcade.Body;
 		body.setVelocity(0);
@@ -227,6 +240,22 @@ export default class Player extends Wizard {
 		}
 
 		super.update();
+	}
+	updateDir() {
+		const eyeDir = this.getEyeDir();
+		const [c, newDir] = Player.dirs.reduce(
+			([max, a], [dir], i) => {
+				const delta = eyeDir.dot(dir);
+				if (max < delta) {
+					return [delta, i] as [number, number];
+				}
+				return [max, a] as [number, number];
+			},
+			[-2, this.dir] as [number, number]
+		);
+		this.dir = c > 0.1 ? newDir : this.dir;
+		this.idle = this.body.velocity.length() < 0.1;
+		this.anims.reverse()
 	}
 }
 
