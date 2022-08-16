@@ -1,15 +1,9 @@
 import { StateTable } from '../ai/behaviour/state';
-import { Escape } from '../ai/steerings/escape';
-import { Pursuit } from '../ai/steerings/pursuit';
 import { SaveDistance } from '../ai/steerings/save-distance';
-import Steering from '../ai/steerings/steering';
 import { Wander } from '../ai/steerings/wander';
 import CharacterFactory from './character_factory';
 import { Scene } from './scene';
 import Vector2 = Phaser.Math.Vector2;
-import cursorAttackURL from '../../assets/sprites/ui/cursor_attack.png';
-import cursorRunURL from '../../assets/sprites/ui/cursor_run.png';
-import cursorReloadURL from '../../assets/sprites/ui/cursor_time.png';
 
 export class SnakeAnimation {
 	private static dirs = [
@@ -178,8 +172,26 @@ export class Wizard extends Biota {
 	}
 }
 
+class Cursor extends Phaser.GameObjects.Sprite {
+	constructor(scene: Phaser.Scene, texture: string | Phaser.Textures.Texture, frame?: string | number) {
+		super(scene, 0, 0, texture);
+		scene.input.setDefaultCursor(`none`)
+		scene.add.existing(this);
+		this.setDepth(1000);
+	}
+
+	update(): void {
+		this.scene.input.activePointer.updateWorldPoint(this.scene.cameras.main);
+		this.setX(this.scene.input.activePointer.worldX);
+		this.setY(this.scene.input.activePointer.worldY);
+		this.displayWidth = 32 / this.scene.cameras.main.zoom;
+		this.displayHeight = 32 / this.scene.cameras.main.zoom;
+	}
+}
+
 export default class Player extends Wizard {
 	mouse = new Vector2()
+	cursor: Cursor
 	constructor(
 		scene: Scene,
 		x: number,
@@ -192,6 +204,7 @@ export default class Player extends Wizard {
 		fireball: FireballConfig
 	) {
 		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
+		const cursor = this.cursor = new Cursor(scene, 'cursor', 0);
 		const camera = scene.cameras.main;
 		camera.zoom = 1.5; // если нужно приблизить камеру к авроре, чтобы увидеть перемещение камеры
 		camera.useBounds = true;
@@ -203,9 +216,10 @@ export default class Player extends Wizard {
 		a.addState('Walk', () => scene.input.activePointer.isDown, 'Attack', this.spawnFireball);
 		a.addState('Walk', () => cursors.shift.isDown, 'Run');
 		a.addState('Run', () => cursors.shift.isUp || this.idle, 'Walk');
-		a.onStateChanged('Attack', () => scene.input.setDefaultCursor(`url(${cursorReloadURL}) ${32 / 2} ${32 / 2}, wait`))
-		a.onStateChanged('Walk', () => scene.input.setDefaultCursor(`url(${cursorAttackURL}) ${32 / 2} ${32 / 2}, pointer`))
-		a.onStateChanged('Run', () => scene.input.setDefaultCursor(`url(${cursorRunURL}) ${32 / 2} ${32 / 2}, waitsd`))
+		a.onStateChanged('Attack', () => cursor.setFrame(2))
+		a.onStateChanged('Walk', () => cursor.setFrame(0))
+		a.onStateChanged('Run', () => cursor.setFrame(1))
+		console.debug(scene.textures.get("cursor").getFrameNames())
 		
 	}
 
@@ -221,6 +235,7 @@ export default class Player extends Wizard {
 	}
 
 	update() {
+		this.cursor.update();
 		const body = this.body as Phaser.Physics.Arcade.Body;
 		body.setVelocity(0);
 		const speed = this.speed;

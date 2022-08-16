@@ -7,6 +7,7 @@ import greenSpriteSheet from '../assets/sprites/characters/green.png';
 import slimeSpriteSheet from '../assets/sprites/characters/slime.png';
 import cactusPng from '../assets/sprites/characters/cactus.png';
 import snakePng from '../assets/sprites/characters/snake.png';
+import cursorPng from '../assets/sprites/ui/cursor.png';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
 
 // Из урла берём следующую для открытия сцену
@@ -119,6 +120,7 @@ export class BootScene extends Phaser.Scene {
 		this.load.spritesheet('slime', slimeSpriteSheet, slimeFrameConfig);
 		this.load.image('cactus', cactusPng);
 		this.load.spritesheet('snake', snakePng, { frameWidth: 32, frameHeight: 16 });
+		this.load.spritesheet('cursor', cursorPng, { frameWidth: 32, frameHeight: 32 });
 
 		this.load.on('complete', () => {
 			const spritesGenerator = new SpritesGenerator(this);
