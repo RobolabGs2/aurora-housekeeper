@@ -1,4 +1,5 @@
 import Steering from '../ai/steerings/steering';
+import CharacterFactory from './character_factory';
 import { Biota, SnakeAnimation } from './player';
 import { Scene } from './scene';
 
@@ -9,12 +10,25 @@ export default class DemoNPC extends Biota {
 		y: number,
 		readonly snakeName: string,
 		readonly maxSpeed: number,
-		hp: number
+		hp: number,
+		factory: CharacterFactory,
 	) {
 		super(scene, x, y, 'cactus', hp);
 		this.setVelocity(1);
+		if (factory.player) {
+			scene.physics.add.collider(this, factory.player, () => {
+				if (scene.time.now - this.lastBit > this.cooldown) {
+					factory.player?.emit('damage', 1);
+					this.lastBit = scene.time.now;
+				}
+			})
+		}
+		this.once('destroy', () => {
+			factory.buildMedicineChest(this.x, this.y);
+		})
 	}
-
+	protected cooldown = 250;
+	protected lastBit = 0;
 	protected steerings: Steering[] = [];
 	protected last = Date.now();
 

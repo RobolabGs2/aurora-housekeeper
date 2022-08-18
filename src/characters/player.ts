@@ -139,12 +139,13 @@ export class Wizard extends Biota {
 	spawnFireball(dirV: Vector2) {
 		const scene = this.scene;
 		this.lastAttack = scene.time.now;
-		const fireball = scene.add.circle(0, 0, this.fireball.radius, this.fireball.color);
+		const fireball = scene.add.circle(0, 0, this.fireball.radius, 0, 0);
 		scene.physics.add.existing(fireball);
 		fireball.setDepth(4);
 		fireball.setPosition(this.x, this.y);
 		dirV.normalize().scale(256);
 		(fireball.body as Phaser.Physics.Arcade.Body).setVelocity(dirV.x, dirV.y);
+		// fireball.once('destroy', particles.destroy, particles);
 		scene.physics.add.collider(this.factory.dynamicGroup, fireball, (b1, b2) => {
 			if (b1 == this || b2 == this) return;
 			b1.emit('damage', this.fireball.damage);
@@ -156,6 +157,30 @@ export class Wizard extends Biota {
 			callback: fireball.destroy,
 			callbackScope: fireball,
 		});
+		const particles = this.scene.add.particles('radialGradient');
+		const particleSize = this.texture.get('radialGradient').height;
+		const c = Phaser.Display.Color.IntegerToColor(this.fireball.color)
+		const emmiter2 = particles.createEmitter({
+			lifespan: 200,
+			speed: {min: 0.5*100, max: 100},
+			scale: { start: this.fireball.radius/particleSize, end: 0},
+			quantity: 2,
+			blendMode: Phaser.BlendModes.NORMAL,
+			tint: c.darken(3).color32,
+			follow: fireball,
+		})
+		const emmiter = particles.createEmitter({
+			lifespan: 200,
+			speed: {min: 0.5*100, max: 100},
+			scale: { start: this.fireball.radius/particleSize, end: 0},
+			quantity: 8,
+			blendMode: Phaser.BlendModes.ADD,
+			tint: this.fireball.color,
+			follow: fireball,
+		})
+		fireball.on(Phaser.Core.Events.DESTROY, ()=> {
+			particles.destroy();
+		})
 	}
 	update() {
 		const body = this.body as Phaser.Physics.Arcade.Body;
@@ -206,7 +231,6 @@ export default class Player extends Wizard {
 		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
 		const cursor = this.cursor = new Cursor(scene, 'cursor', 0);
 		const camera = scene.cameras.main;
-		camera.zoom = 1.5; // если нужно приблизить камеру к авроре, чтобы увидеть перемещение камеры
 		camera.useBounds = true;
 		const size = scene.getSize();
 		camera.setBounds(0, 0, size.x, size.y);
@@ -219,10 +243,9 @@ export default class Player extends Wizard {
 		a.onStateChanged('Attack', () => cursor.setFrame(2))
 		a.onStateChanged('Walk', () => cursor.setFrame(0))
 		a.onStateChanged('Run', () => cursor.setFrame(1))
-		console.debug(scene.textures.get("cursor").getFrameNames())
-		
-	}
 
+
+	}
 	spawnFireball() {
 		const eyeDir = this.getEyeDir();
 		super.spawnFireball(eyeDir);

@@ -5,6 +5,7 @@ import AnimationLoader from '../utils/animation-loader';
 import { Scene } from './scene';
 import DemoNPC from './demo-npc';
 import Sprite = Phaser.Physics.Arcade.Sprite;
+import { Loot } from './loot';
 
 export interface BuildSlimeOptions {
 	slimeType?: number;
@@ -118,9 +119,21 @@ export default class CharacterFactory {
 	}
 
 	buildTestCharacter(skin: string, maxSpeed: number, hp: number, x: number, y: number) {
-		const character = new DemoNPC(this.scene, x, y, skin, maxSpeed, hp);
+		const character = new DemoNPC(this.scene, x, y, skin, maxSpeed, hp, this);
 		this.addSprite(character);
 		return character;
+	}
+
+	buildMedicineChest(x: number, y: number) {
+		const chest = new Loot(this.scene, x, y, 'cursor');
+		chest.width = 32;
+		chest.height = 32;
+		this.addSprite(chest, false);
+		this.scene.physics.overlap(chest, this.player, () => {
+			this.player!.emit('damage', -1)
+			chest.destroy()
+		})
+		return chest;
 	}
 
 	static slimeNumberToName(n: number): string {
