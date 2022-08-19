@@ -1,4 +1,4 @@
-import Player, { EvilWizard, FireballConfig } from './player';
+import Player, { EvilWizard } from './player';
 import cyberpunkConfigJson from '../../assets/animations/cyberpunk.json';
 import slimeConfigJson from '../../assets/animations/slime.json';
 import AnimationLoader from '../utils/animation-loader';
@@ -6,6 +6,7 @@ import { Scene } from './scene';
 import DemoNPC from './demo-npc';
 import Sprite = Phaser.Physics.Arcade.Sprite;
 import { Loot } from './loot';
+import { FireballSystem, FireballConfig } from './fireball_system';
 
 export interface BuildSlimeOptions {
 	slimeType?: number;
@@ -33,7 +34,6 @@ export type SpriteSheetName = typeof slimeSpriteSheet | HumanSpriteSheetName;
 export default class CharacterFactory {
 	animationLibrary = {} as Record<SpriteSheetName, Map<string, string[]>>;
 	readonly gameObjects = new Array<Sprite>();
-	readonly dynamicGroup: Phaser.Physics.Arcade.Group;
 	player?: Player;
 	constructor(public scene: Scene) {
 		cyberSpritesheets.forEach(element => {
@@ -50,8 +50,9 @@ export default class CharacterFactory {
 			slimeConfigJson,
 			slimeSpriteSheet
 		).createAnimations();
-		this.dynamicGroup = scene.physics.add.group();
 	}
+	readonly dynamicGroup = this.scene.physics.add.group();
+	readonly fireballSystem = new FireballSystem(this.scene, this);
 
 	addSprite(
 		sprite: Sprite,

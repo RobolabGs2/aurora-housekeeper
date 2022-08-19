@@ -2,6 +2,7 @@ import { StateTable } from '../ai/behaviour/state';
 import { SaveDistance } from '../ai/steerings/save-distance';
 import { Wander } from '../ai/steerings/wander';
 import CharacterFactory from './character_factory';
+import { FireballConfig } from './fireball_system';
 import { Scene } from './scene';
 import Vector2 = Phaser.Math.Vector2;
 
@@ -74,12 +75,6 @@ export class Biota extends Phaser.Physics.Arcade.Sprite {
 	}
 }
 
-export interface FireballConfig {
-	damage: number;
-	cooldown: number;
-	color: number;
-	radius: number;
-}
 
 export class Wizard extends Biota {
 	static dirs = [
@@ -139,48 +134,7 @@ export class Wizard extends Biota {
 	spawnFireball(dirV: Vector2) {
 		const scene = this.scene;
 		this.lastAttack = scene.time.now;
-		const fireball = scene.add.circle(0, 0, this.fireball.radius, 0, 0);
-		scene.physics.add.existing(fireball);
-		fireball.setDepth(4);
-		fireball.setPosition(this.x, this.y);
-		dirV.normalize().scale(256);
-		(fireball.body as Phaser.Physics.Arcade.Body).setVelocity(dirV.x, dirV.y);
-		// fireball.once('destroy', particles.destroy, particles);
-		scene.physics.add.collider(this.factory.dynamicGroup, fireball, (b1, b2) => {
-			if (b1 == this || b2 == this) return;
-			b1.emit('damage', this.fireball.damage);
-			b2.emit('damage', this.fireball.damage);
-			fireball.destroy();
-		});
-		scene.time.addEvent({
-			delay: 2000,
-			callback: fireball.destroy,
-			callbackScope: fireball,
-		});
-		const particles = this.scene.add.particles('radialGradient');
-		const particleSize = this.texture.get('radialGradient').height;
-		const c = Phaser.Display.Color.IntegerToColor(this.fireball.color)
-		const emmiter2 = particles.createEmitter({
-			lifespan: 200,
-			speed: {min: 0.5*100, max: 100},
-			scale: { start: this.fireball.radius/particleSize, end: 0},
-			quantity: 2,
-			blendMode: Phaser.BlendModes.NORMAL,
-			tint: c.darken(3).color32,
-			follow: fireball,
-		})
-		const emmiter = particles.createEmitter({
-			lifespan: 200,
-			speed: {min: 0.5*100, max: 100},
-			scale: { start: this.fireball.radius/particleSize, end: 0},
-			quantity: 8,
-			blendMode: Phaser.BlendModes.ADD,
-			tint: this.fireball.color,
-			follow: fireball,
-		})
-		fireball.on(Phaser.Core.Events.DESTROY, ()=> {
-			particles.destroy();
-		})
+		const fireball = this.factory.fireballSystem.spawnFireball(this.fireball, this, dirV);
 	}
 	update() {
 		const body = this.body as Phaser.Physics.Arcade.Body;
