@@ -5,6 +5,6 @@ export class Loot extends Phaser.Physics.Arcade.Sprite {
         super(scene, x, y, texture, frame);
         scene.physics.world.enable(this, Phaser.Physics.Arcade.STATIC_BODY);
         scene.physics.add.existing(this, true);
-        console.log("LOOT", x, y)
+        scene.add.existing(this);
     }
 }

@@ -67,7 +67,7 @@ export class Biota extends Phaser.Physics.Arcade.Sprite {
 		};
 		let resetTintTimer: Phaser.Time.TimerEvent | undefined;
 		this.addListener('damage', (value: number) => {
-			this.tint = 0xff7777;
+			this.tint = value > 0 ? 0xff7777 : 0xee00ff;
 			resetTintTimer?.destroy();
 			resetTintTimer = this.scene.time.addEvent(resetTintConfig);
 			this.hp -= value;

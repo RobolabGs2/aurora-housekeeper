@@ -52,6 +52,7 @@ export default class CharacterFactory {
 		).createAnimations();
 	}
 	readonly dynamicGroup = this.scene.physics.add.group();
+	readonly staticGroup = this.scene.physics.add.staticGroup();
 	readonly fireballSystem = new FireballSystem(this.scene, this);
 
 	addSprite(
@@ -126,14 +127,17 @@ export default class CharacterFactory {
 	}
 
 	buildMedicineChest(x: number, y: number) {
-		const chest = new Loot(this.scene, x, y, 'cursor');
+		const chest = new Loot(this.scene, x, y, 'cursor', 3);
 		chest.width = 32;
 		chest.height = 32;
+		this.staticGroup.add(chest);
 		this.addSprite(chest, false);
-		this.scene.physics.overlap(chest, this.player, () => {
+		this.scene.physics.add.overlap(chest, this.player!, () => {
+			console.log("OVERLAP")
 			this.player!.emit('damage', -1)
 			chest.destroy()
 		})
+		chest.setDepth(10);
 		return chest;
 	}
 
