@@ -9,6 +9,10 @@ import cactusPng from '../assets/sprites/characters/cactus.png';
 import snakePng from '../assets/sprites/characters/snake.png';
 import cursorPng from '../assets/sprites/ui/cursor.png';
 import radialGradient from '../assets/sprites/radial_gradient.png';
+import fireballSound from 'url:../assets/sounds/fireball_fly3.ogg';
+import fireballStop from 'url:../assets/sounds/fireball_stop.ogg';
+import fireballHit from 'url:../assets/sounds/fireball_hit.ogg';
+import fireballSpawn from 'url:../assets/sounds/fireball_spawn.ogg';
 import { loadSettingsFromURL } from '../src/utils/url-parser';
 
 // Из урла берём следующую для открытия сцену
@@ -123,6 +127,10 @@ export class BootScene extends Phaser.Scene {
 		this.load.image('radialGradient', radialGradient);
 		this.load.spritesheet('snake', snakePng, { frameWidth: 32, frameHeight: 16 });
 		this.load.spritesheet('cursor', cursorPng, { frameWidth: 32, frameHeight: 32 });
+		this.load.audio('fireballSound', fireballSound);
+		this.load.audio('fireballStop', fireballStop);
+		this.load.audio('fireballSpawn', fireballSpawn);
+		this.load.audio('fireballHit', fireballHit);
 
 		this.load.on('complete', () => {
 			const spritesGenerator = new SpritesGenerator(this);

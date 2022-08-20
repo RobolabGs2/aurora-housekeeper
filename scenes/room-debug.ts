@@ -19,7 +19,8 @@ import {
 
 import Vector2 = Phaser.Math.Vector2;
 import { Pursuit } from '../src/ai/steerings/pursuit';
-import { EvilWizard, FireballConfig } from '../src/characters/player';
+import { EvilWizard } from '../src/characters/player';
+import { FireballConfig } from '../src/characters/fireball_system';
 
 const { randomState, defaultZoom, playerMode } = loadSettingsFromURL({
 	randomState: `!rnd,1,${Math.random()},${Math.random()},${Math.random()}`,
@@ -337,6 +338,7 @@ export class RoomDebug extends Phaser.Scene implements Scene {
 		if (this.characterFactory) {
 			const count = this.characterFactory.gameObjects.length;
 			for (let i = 0; i < count; i++) this.characterFactory.gameObjects[i].update(dt);
+			this.characterFactory.fireballSystem.update(dt);
 		}
 		this.objects.forEach(o => o.update(dt));
 	}

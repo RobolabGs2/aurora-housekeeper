@@ -157,7 +157,11 @@ class Cursor extends Phaser.GameObjects.Sprite {
 		scene.input.setDefaultCursor(`none`)
 		scene.add.existing(this);
 		this.setDepth(1000);
+		// const sound = scene.sound.add("fireballSound", {loop: true})
+        // sound.play();
+		// this.sound = sound as Phaser.Sound.HTML5AudioSound;
 	}
+	// private sound: Phaser.Sound.HTML5AudioSound;
 
 	update(): void {
 		this.scene.input.activePointer.updateWorldPoint(this.scene.cameras.main);
@@ -165,6 +169,8 @@ class Cursor extends Phaser.GameObjects.Sprite {
 		this.setY(this.scene.input.activePointer.worldY);
 		this.displayWidth = 32 / this.scene.cameras.main.zoom;
 		this.displayHeight = 32 / this.scene.cameras.main.zoom;
+		// const pan = -(this.scene.cameras.main.displayWidth/2 - this.scene.input.activePointer.x)/(this.scene.cameras.main.displayWidth/2);
+		// this.sound.pan = pan;
 	}
 }
 

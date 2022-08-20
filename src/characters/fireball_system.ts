@@ -20,6 +20,9 @@ export class FireballSystem {
                 fireball = b2;
                 enemy = b1;
             }
+            const hitSound = scene.sound.add("fireballHit") as Phaser.Sound.HTML5AudioSound;
+            hitSound.play();
+            moveSoundInPoint(hitSound, fireball as any, this.factory.player!.x, this.factory.player!.y)
             enemy.emit("damage", fireball.getData("damage"));
             fireball.destroy();
         });
@@ -62,14 +65,59 @@ export class FireballSystem {
             blendMode: Phaser.BlendModes.ADD,
             tint: config.color,
         })
+		const sound = scene.sound.add("fireballSound", {loop: true}) as Phaser.Sound.HTML5AudioSound;
+		const soundSpawn = scene.sound.add("fireballSpawn") as Phaser.Sound.HTML5AudioSound;
+        soundSpawn.play();
+        moveSoundInPoint(soundSpawn, fireball, this.factory.player!.x, this.factory.player!.y);
+        // sound.play();
+        fireball.setData("sound", sound);
+
         fireball.on(Phaser.Core.Events.DESTROY, () => {
             emiter.stop();
             emiterBackground.stop();
             timer.remove();
+            sound.destroy()
+            soundSpawn.destroy()
+            const stopSound = scene.sound.add("fireballStop") as Phaser.Sound.HTML5AudioSound;
+            stopSound.play();
+            moveSoundInPoint(stopSound, fireball, this.factory.player!.x, this.factory.player!.y)
             scene.time.addEvent({
                 delay: 200,
                 callback: () => { emiter.remove(); emiterBackground.remove(); },
             });
         })
     }
+
+    update(dt: number) {
+        const centerX = this.factory.player!.x;
+        const centerY = this.factory.player!.y;
+        for (let f of this.fireballsGroup.getChildren() as Phaser.GameObjects.Sprite[]) {
+            const sound = f.getData("sound") as Phaser.Sound.HTML5AudioSound;
+            moveSoundInPoint(sound, f, centerX, centerY);
+            // const pan = -(this.scene.cameras.main.displayWidth/2 - this.scene.input.activePointer.x)/(this.scene.cameras.main.displayWidth/2);
+		// this.sound.pan = pan;
+        }
+    }
 }
+
+function moveSoundInPoint(sound: Phaser.Sound.HTML5AudioSound, f: {x: number, y: number}, centerX: number, centerY: number) {
+    const panSign = Math.sign(f.x - centerX);
+    const distX = Math.abs(f.x - centerX);
+    const panModule = distX < 32 ? 0 : Phaser.Math.Clamp((distX - 32) / 128, 0, 1);
+    const pan = panSign * panModule * panModule;
+
+    sound.setPan(Math.sign(pan) * pan * pan);
+    const dist = Phaser.Math.Clamp(Phaser.Math.Distance.Between(centerX, centerY, f.x, f.y) / 512, 0.001, 1);
+    sound.setVolume(Phaser.Math.SmoothStep((256 / dist * dist), 0, 1));
+}
+
+// function moveSoundInPoint2(f: {x: number, y: number}, center: {x: number, y: number}): Phaser.Sound. {
+//     const panSign = Math.sign(f.x - centerX);
+//     const distX = Math.abs(f.x - centerX);
+//     const panModule = distX < 32 ? 0 : Phaser.Math.Clamp((distX - 32) / 128, 0, 1);
+//     const pan = panSign * panModule * panModule;
+
+//     sound.setPan(Math.sign(pan) * pan * pan);
+//     const dist = Phaser.Math.Clamp(Phaser.Math.Distance.Between(centerX, centerY, f.x, f.y) / 512, 0.001, 1);
+//     sound.setVolume(Phaser.Math.SmoothStep((256 / dist * dist), 0, 1));
+// }

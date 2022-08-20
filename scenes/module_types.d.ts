@@ -6,3 +6,8 @@ declare module '*.png' {
 	const value: string;
 	export = value;
 }
+
+declare module '*.ogg' {
+	const value: string;
+	export = value;
+}
