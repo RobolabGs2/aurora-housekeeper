@@ -11,7 +11,7 @@ export default class DemoNPC extends Biota {
 		readonly snakeName: string,
 		readonly maxSpeed: number,
 		hp: number,
-		factory: CharacterFactory,
+		factory: CharacterFactory
 	) {
 		super(scene, x, y, 'cactus', hp);
 		this.setVelocity(1);
@@ -21,11 +21,11 @@ export default class DemoNPC extends Biota {
 					factory.player?.emit('damage', 1);
 					this.lastBit = scene.time.now;
 				}
-			})
+			});
 		}
 		this.once('destroy', () => {
 			factory.buildMedicineChest(this.x, this.y);
-		})
+		});
 	}
 	protected cooldown = 250;
 	protected lastBit = 0;

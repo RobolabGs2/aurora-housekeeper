@@ -133,10 +133,10 @@ export default class CharacterFactory {
 		this.staticGroup.add(chest);
 		this.addSprite(chest, false);
 		this.scene.physics.add.overlap(chest, this.player!, () => {
-			console.log("OVERLAP")
-			this.player!.emit('damage', -1)
-			chest.destroy()
-		})
+			console.log('OVERLAP');
+			this.player!.emit('damage', -1);
+			chest.destroy();
+		});
 		chest.setDepth(10);
 		return chest;
 	}

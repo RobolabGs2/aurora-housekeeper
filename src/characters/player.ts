@@ -17,7 +17,7 @@ export class SnakeAnimation {
 		[new Vector2(-1, 0).normalize(), 'left'],
 		[new Vector2(-1, -1).normalize(), 'left_up'],
 	] as [Vector2, string][];
-	constructor(readonly name: string) { }
+	constructor(readonly name: string) {}
 	updateAnimation(sprite: Phaser.Physics.Arcade.Sprite) {
 		const [c, dir] = SnakeAnimation.dirs.reduce(
 			([max, a], [dir, da]) => {
@@ -74,7 +74,6 @@ export class Biota extends Phaser.Physics.Arcade.Sprite {
 		});
 	}
 }
-
 
 export class Wizard extends Biota {
 	static dirs = [
@@ -152,13 +151,17 @@ export class Wizard extends Biota {
 }
 
 class Cursor extends Phaser.GameObjects.Sprite {
-	constructor(scene: Phaser.Scene, texture: string | Phaser.Textures.Texture, frame?: string | number) {
+	constructor(
+		scene: Phaser.Scene,
+		texture: string | Phaser.Textures.Texture,
+		frame?: string | number
+	) {
 		super(scene, 0, 0, texture);
-		scene.input.setDefaultCursor(`none`)
+		scene.input.setDefaultCursor(`none`);
 		scene.add.existing(this);
 		this.setDepth(1000);
 		// const sound = scene.sound.add("fireballSound", {loop: true})
-        // sound.play();
+		// sound.play();
 		// this.sound = sound as Phaser.Sound.HTML5AudioSound;
 	}
 	// private sound: Phaser.Sound.HTML5AudioSound;
@@ -175,8 +178,8 @@ class Cursor extends Phaser.GameObjects.Sprite {
 }
 
 export default class Player extends Wizard {
-	mouse = new Vector2()
-	cursor: Cursor
+	mouse = new Vector2();
+	cursor: Cursor;
 	constructor(
 		scene: Scene,
 		x: number,
@@ -189,7 +192,7 @@ export default class Player extends Wizard {
 		fireball: FireballConfig
 	) {
 		super(scene, x, y, name, factory, maxSpeed, maxHP, fireball);
-		const cursor = this.cursor = new Cursor(scene, 'cursor', 0);
+		const cursor = (this.cursor = new Cursor(scene, 'cursor', 0));
 		const camera = scene.cameras.main;
 		camera.useBounds = true;
 		const size = scene.getSize();
@@ -200,11 +203,9 @@ export default class Player extends Wizard {
 		a.addState('Walk', () => scene.input.activePointer.isDown, 'Attack', this.spawnFireball);
 		a.addState('Walk', () => cursors.shift.isDown, 'Run');
 		a.addState('Run', () => cursors.shift.isUp || this.idle, 'Walk');
-		a.onStateChanged('Attack', () => cursor.setFrame(2))
-		a.onStateChanged('Walk', () => cursor.setFrame(0))
-		a.onStateChanged('Run', () => cursor.setFrame(1))
-
-
+		a.onStateChanged('Attack', () => cursor.setFrame(2));
+		a.onStateChanged('Walk', () => cursor.setFrame(0));
+		a.onStateChanged('Run', () => cursor.setFrame(1));
 	}
 	spawnFireball() {
 		const eyeDir = this.getEyeDir();
@@ -253,7 +254,7 @@ export default class Player extends Wizard {
 		);
 		this.dir = c > 0.1 ? newDir : this.dir;
 		this.idle = this.body.velocity.length() < 0.1;
-		this.anims.reverse()
+		this.anims.reverse();
 	}
 }
 
